@@ -1,0 +1,2287 @@
+<!DOCTYPE html>
+<html lang="bn" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>বাংলাদেশ FMCG ক্যাটাগরি ও জিও-স্প্যাশিয়াল ইন্টেলিজেন্স ম্যাপ | National Retail Geo Map</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Space+Grotesk:wght@600;700;800&family=Hind+Siliguri:wght@500;600;700&display=swap" rel="stylesheet" />
+  
+  <!-- Leaflet Core Assets (Local) -->
+  <link rel="stylesheet" href="leaflet.css" />
+  <script src="leaflet.js"></script>
+
+  <!-- Local GeoJSON Boundary Assets (Divisions, 64 Districts, 545 Thanas) -->
+  <script src="bd_geo.js"></script>
+  <script src="bd_districts_geo.js"></script>
+  <script src="bd_thanas_geo.js"></script>
+
+  <!-- Precomputed Hierarchical Point-in-Polygon Dataset -->
+  <script src="district_thana_category_data.js"></script>
+
+  <style>
+    /* ---------------- THEME VARIABLES ---------------- */
+    :root[data-theme="dark"] {
+      --bg-canvas: #090E17;
+      --bg-header: rgba(15, 23, 42, 0.98);
+      --bg-card: #151F30;
+      --bg-card-subtle: #0F172A;
+      --bg-card-hover: #1E2D44;
+      --border-color: #24344D;
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --accent-blue: #38BDF8;
+      --accent-green: #34D399;
+      --accent-gold: #FBBF24;
+      --accent-rose: #FB7185;
+      --map-bg: #0B111E;
+      --sidebar-bg: #0F172A;
+      --tooltip-bg: rgba(15, 23, 42, 0.96);
+      --label-title: #FFFFFF;
+      --label-stat: #E2E8F0;
+      --label-halo: rgba(0, 0, 0, 0.85);
+      --hero-box-bg: rgba(2, 132, 199, 0.12);
+      --hero-box-border: rgba(56, 189, 248, 0.25);
+    }
+
+    :root[data-theme="light"] {
+      --bg-canvas: #F8FAFC;
+      --bg-header: rgba(255, 255, 255, 0.98);
+      --bg-card: #FFFFFF;
+      --bg-card-subtle: #F1F5F9;
+      --bg-card-hover: #E2E8F0;
+      --border-color: #CBD5E1;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --accent-blue: #0284C7;
+      --accent-green: #059669;
+      --accent-gold: #D97706;
+      --accent-rose: #E11D48;
+      --map-bg: #FFFFFF;
+      --sidebar-bg: #FFFFFF;
+      --tooltip-bg: rgba(255, 255, 255, 0.98);
+      --label-title: #0F172A;
+      --label-stat: #334155;
+      --label-halo: rgba(255, 255, 255, 0.9);
+      --hero-box-bg: #EDF7FE;
+      --hero-box-border: #BAE6FD;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-canvas);
+      font-family: 'Plus Jakarta Sans', 'Hind Siliguri', sans-serif;
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---------------- HEADER BAR ---------------- */
+    header {
+      background: var(--bg-header);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px 20px;
+      z-index: 50;
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo-pill {
+      background: linear-gradient(135deg, #0284C7 0%, #2563EB 100%);
+      color: #FFFFFF;
+      padding: 5px 11px;
+      border-radius: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35);
+    }
+
+    .header-title-box h1 {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+    }
+
+    .header-title-box p {
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Geo-Level Switcher (Division | District | Thana) */
+    .level-switcher {
+      display: flex;
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .level-btn {
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .level-btn.active {
+      background: #0284C7;
+      color: #FFFFFF;
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+    }
+
+    .kpi-chip {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 4px 10px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .kpi-chip-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12.5px;
+      font-weight: 800;
+      color: var(--accent-blue);
+      line-height: 1.1;
+    }
+
+    .kpi-chip-lbl {
+      font-size: 9px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .btn-theme {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-main);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* ---------------- MAIN VIEWPORT (3-COLUMN LAYOUT) ---------------- */
+    .main-viewport {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+      background-color: var(--map-bg);
+    }
+
+    /* ---------------- LEFT SIDEBAR (TERRITORY NAVIGATOR & CATEGORY FILTER) ---------------- */
+    .left-sidebar {
+      width: 360px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 40;
+      overflow-y: auto;
+      flex-shrink: 0;
+      padding: 14px;
+      gap: 14px;
+      transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), padding 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .left-sidebar.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      max-width: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      border: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    .sidebar-section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .sidebar-section-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-reset-nav {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-reset-nav:hover {
+      text-decoration: underline;
+    }
+
+    /* Division Grid (2 Columns, matching Screenshot 1) */
+    .divisions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .div-nav-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 9px;
+      padding: 9px 10px;
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      transition: all 0.15s ease;
+      overflow: hidden;
+    }
+
+    .div-nav-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    .div-nav-card.active {
+      box-shadow: 0 0 0 2px var(--card-accent, #0284C7), 0 4px 12px rgba(2, 132, 199, 0.2);
+      background: var(--bg-card-hover) !important;
+    }
+
+    .div-card-title {
+      font-size: 12.5px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 2px;
+    }
+
+    .div-card-num {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.1;
+    }
+
+    .div-card-sub {
+      font-size: 9.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-top: 3px;
+    }
+
+    /* Sub-Territory Scroll Section (Districts & Thanas) */
+    .sub-territory-container {
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .sub-item-list {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .sub-item-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .sub-item-card:hover {
+      border-color: var(--accent-blue);
+      background: var(--bg-card-hover);
+    }
+
+    .sub-item-card.active {
+      background: rgba(2, 132, 199, 0.15) !important;
+      border-color: var(--accent-blue) !important;
+      box-shadow: 0 0 0 1.5px var(--accent-blue);
+    }
+
+    .sub-item-name {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .sub-item-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--accent-blue);
+    }
+
+    /* Category Filter List in Left Panel */
+    .category-filter-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
+    .cat-filter-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      border-radius: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .cat-filter-btn:hover {
+      border-color: var(--accent-blue);
+      transform: translateX(2px);
+    }
+
+    .cat-filter-btn.active {
+      background: rgba(2, 132, 199, 0.15) !important;
+      border-color: var(--accent-blue) !important;
+      box-shadow: 0 0 0 1.5px var(--accent-blue);
+    }
+
+    .cat-filter-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cat-filter-icon {
+      font-size: 13px;
+    }
+
+    .cat-filter-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .cat-filter-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+    }
+
+    /* ---------------- CENTER MAP CONTAINER ---------------- */
+    #map-container {
+      flex: 1;
+      position: relative;
+      height: 100%;
+      background: var(--map-bg);
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background: var(--map-bg);
+    }
+
+    .map-breadcrumb {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 1000;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 6px 14px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+      font-size: 11.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .bc-crumb {
+      cursor: pointer;
+      color: var(--text-main);
+    }
+
+    .bc-crumb:hover {
+      color: var(--accent-blue);
+      text-decoration: underline;
+    }
+
+    .map-reset-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 14px;
+      z-index: 1000;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-main);
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* ---------------- RIGHT SIDEBAR (TERRITORY PROFILE - SCREENSHOT 2) ---------------- */
+    .right-sidebar {
+      width: 420px;
+      background: var(--sidebar-bg);
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 40;
+      overflow-y: auto;
+      flex-shrink: 0;
+      padding: 16px;
+      gap: 14px;
+      transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), padding 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .right-sidebar.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      max-width: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      border: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    /* Map Action Toolbar Top Right */
+    .map-top-actions {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .map-tool-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-main);
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .map-tool-btn:hover {
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+      transform: translateY(-1px);
+    }
+
+    .map-tool-btn.active {
+      background: var(--accent-blue);
+      color: #FFFFFF;
+      border-color: var(--accent-blue);
+      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+    }
+
+    /* Sidebar floating toggle tabs */
+    .sidebar-floating-toggle {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 1000;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      width: 24px;
+      height: 48px;
+      border-radius: 0 8px 8px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+      cursor: pointer;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.12);
+      transition: all 0.2s ease;
+    }
+
+    .sidebar-floating-toggle:hover {
+      background: var(--accent-blue);
+      color: #FFFFFF;
+      border-color: var(--accent-blue);
+    }
+
+    .sidebar-floating-toggle.right-toggle {
+      right: 0;
+      border-radius: 8px 0 0 8px;
+      box-shadow: -2px 0 8px rgba(0, 0, 0, 0.12);
+    }
+
+    .sidebar-floating-toggle.left-toggle {
+      left: 0;
+    }
+
+    .profile-header-box {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+
+    .profile-title {
+      font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.2;
+    }
+
+    .profile-subtitle {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* Big Hero Metric Card (Image 2) */
+    .hero-metric-card {
+      background: var(--hero-box-bg);
+      border: 1px solid var(--hero-box-border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hero-metric-left {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hero-big-num {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--accent-blue);
+      line-height: 1.1;
+    }
+
+    .hero-big-lbl {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .hero-metric-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .hero-share-pill {
+      background: #059669;
+      color: #FFFFFF;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+    }
+
+    .hero-share-lbl {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .category-section-heading {
+      font-size: 11.5px;
+      font-weight: 800;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* 2-Column Category Cards Grid (Image 2) */
+    .profile-category-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .profile-cat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 8px 10px 6px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .profile-cat-card:hover {
+      border-color: var(--accent-blue);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .profile-cat-card.active {
+      box-shadow: 0 0 0 2px var(--accent-blue);
+      background: var(--bg-card-hover);
+    }
+
+    .profile-cat-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+    }
+
+    .profile-cat-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+    }
+
+    .profile-cat-icon-box {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .profile-cat-name {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .profile-cat-right {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .profile-cat-num {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11.5px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .profile-cat-share-pill {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1.5px 5px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .profile-cat-bar {
+      width: 100%;
+      height: 3px;
+      border-radius: 2px;
+      margin-top: 6px;
+    }
+
+    /* ---------------- BEOL MAP ANALYSIS LABELS STYLING ---------------- */
+    .dist-lbl, .thana-lbl, .div-lbl {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+      text-align: center;
+      pointer-events: none;
+      padding: 0 !important;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .dist-lbl-title, .thana-lbl-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      color: #0F172A;
+      text-shadow: 0 0 3px #FFFFFF, 0 0 6px #FFFFFF, -1.5px -1.5px 0 #FFFFFF, 1.5px -1.5px 0 #FFFFFF, -1.5px 1.5px 0 #FFFFFF, 1.5px 1.5px 0 #FFFFFF;
+      line-height: 1.15;
+      white-space: nowrap;
+    }
+
+    [data-theme="dark"] .dist-lbl-title,
+    [data-theme="dark"] .thana-lbl-title {
+      color: #F8FAFC;
+      text-shadow: 0 0 4px #000000, 0 0 8px #000000, -1.5px -1.5px 0 #000000, 1.5px -1.5px 0 #000000, -1.5px 1.5px 0 #000000, 1.5px 1.5px 0 #000000;
+    }
+
+    .dist-lbl-cnt, .thana-lbl-cnt {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 9.5px;
+      font-weight: 800;
+      color: #1E293B;
+      text-shadow: 0 0 3px #FFFFFF, 0 0 5px #FFFFFF, -1px -1px 0 #FFFFFF, 1px -1px 0 #FFFFFF, -1px 1px 0 #FFFFFF, 1px 1px 0 #FFFFFF;
+      margin-top: 1px;
+    }
+
+    [data-theme="dark"] .dist-lbl-cnt,
+    [data-theme="dark"] .thana-lbl-cnt {
+      color: #CBD5E1;
+      text-shadow: 0 0 4px #000000, 0 0 6px #000000, -1px -1px 0 #000000, 1px -1px 0 #000000, -1px 1px 0 #000000, 1px 1px 0 #000000;
+    }
+
+    /* Division Floating Labels (National View) */
+    .div-lbl-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      color: #0F172A;
+      text-shadow: 0 0 4px #FFFFFF, 0 0 8px #FFFFFF, -2px -2px 0 #FFFFFF, 2px -2px 0 #FFFFFF, -2px 2px 0 #FFFFFF, 2px 2px 0 #FFFFFF;
+      line-height: 1.15;
+    }
+
+    [data-theme="dark"] .div-lbl-title {
+      color: #FFFFFF;
+      text-shadow: 0 0 5px #000000, 0 0 10px #000000, -2px -2px 0 #000000, 2px -2px 0 #000000, -2px 2px 0 #000000, 2px 2px 0 #000000;
+    }
+
+    .div-lbl-cnt {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12.5px;
+      font-weight: 800;
+      color: #1E293B;
+      text-shadow: 0 0 4px #FFFFFF, 0 0 6px #FFFFFF;
+      margin-top: 1px;
+    }
+
+    [data-theme="dark"] .div-lbl-cnt {
+      color: #E2E8F0;
+      text-shadow: 0 0 4px #000000, 0 0 8px #000000;
+    }
+
+    /* ---------------- HOVER TOOLTIP (DISABLED PER USER REQUEST) ---------------- */
+    #cursor-tooltip {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      position: absolute;
+      width: 0 !important;
+      height: 0 !important;
+      overflow: hidden !important;
+    }
+
+    .tt-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 5px;
+    }
+
+    .tt-div-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14.5px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .tt-badge-rank {
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 5px;
+      color: #FFFFFF;
+      background: #0284C7;
+      text-transform: uppercase;
+    }
+
+    .tt-hero-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: var(--hero-box-bg);
+    }
+
+    .tt-hero-num {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent-blue);
+      line-height: 1.1;
+    }
+
+    .tt-hero-lbl {
+      font-size: 9.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .tt-hero-pct-pill {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      color: #FFFFFF;
+      background: #059669;
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+
+    .tt-cat-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 6px;
+    }
+
+    .tt-cat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+    }
+
+    .tt-cat-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header Bar -->
+  <header>
+    <div class="brand-group">
+      <div class="brand-logo-pill">SOKRIO GEOSPATIAL BI</div>
+      <div class="header-title-box">
+        <h1>বাংলাদেশ FMCG ক্যাটাগরি ও জিও-স্প্যাশিয়াল ইন্টেলিজেন্স ম্যাপ</h1>
+        <p>প্রকৃত জিপিএস স্থানাঙ্ক ও জিওজেসন বাউন্ডারি • বিভাগ, জেলা ও থানা লেভেল ড্যাশবোর্ড</p>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <!-- 3-Tier Geo Level Switcher -->
+      <div class="level-switcher">
+        <button class="level-btn active" data-level="division" id="btn-lvl-div">🗺️ বিভাগ (Division)</button>
+        <button class="level-btn" data-level="district" id="btn-lvl-dist">📍 জেলা (64 Districts)</button>
+        <button class="level-btn" data-level="thana" id="btn-lvl-thana">🏢 থানা / উপজেলা (545 Thanas)</button>
+      </div>
+
+      <div class="kpi-chip">
+        <span class="kpi-chip-val" id="top-total-kpi">১,০২৭,৬৬৩</span>
+        <span class="kpi-chip-lbl">মোট অডিটেড রিটেল দোকান</span>
+      </div>
+
+      <div class="kpi-chip">
+        <span class="kpi-chip-val" style="color:var(--accent-green);">২১ FMCG গ্রুপ</span>
+        <span class="kpi-chip-lbl">ভেরিফাইড কোহর্ট ডাটাবেজ</span>
+      </div>
+
+      <button class="btn-theme" id="theme-btn">
+        <span id="theme-icon">☀️</span>
+        <span id="theme-text">লাইট মোড</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Viewport (3-Column Layout) -->
+  <div class="main-viewport">
+    
+    <!-- 1. LEFT SIDEBAR (Territory Hierarchy Navigator & Category Filter) -->
+    <aside class="left-sidebar">
+      
+      <!-- Section: Divisions Grid (Matching Screenshot 1) -->
+      <div>
+        <div class="sidebar-section-head">
+          <div class="sidebar-section-title">DIVISIONS OF BANGLADESH</div>
+          <button class="btn-reset-nav" id="btn-reset-territory">Reset ↺</button>
+        </div>
+        <div class="divisions-grid" id="divisions-grid">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Section: Dynamic District List (Shown when division selected) -->
+      <div class="sub-territory-container" id="districts-container" style="display:none;">
+        <div class="sidebar-section-head" style="margin-bottom:4px;">
+          <div class="sidebar-section-title" id="districts-section-title">RAJSHAHI DISTRICTS</div>
+          <span style="font-size:10.5px; font-weight:700; color:var(--text-muted);" id="districts-count-badge">8 Districts</span>
+        </div>
+        <div class="sub-item-list" id="districts-item-list">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Section: Dynamic Thana List (Shown when district selected) -->
+      <div class="sub-territory-container" id="thanas-container" style="display:none;">
+        <div class="sidebar-section-head" style="margin-bottom:4px;">
+          <div class="sidebar-section-title" id="thanas-section-title">GAZIPUR THANAS</div>
+          <span style="font-size:10.5px; font-weight:700; color:var(--text-muted);" id="thanas-count-badge">6 Thanas</span>
+        </div>
+        <div class="sub-item-list" id="thanas-item-list">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Section: Category Filter -->
+      <div>
+        <div class="sidebar-section-head">
+          <div class="sidebar-section-title">🛒 ক্যাটাগরি ফিল্টার</div>
+          <span style="font-size:10.5px; color:var(--accent-blue); font-weight:700;" id="active-cat-pill">সমস্ত ক্যাটাগরি</span>
+        </div>
+        <div class="category-filter-list" id="category-filter-list">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- 2. CENTER SECTION (Interactive Bangladesh Map) -->
+    <div id="map-container">
+      <!-- Floating Sidebar Toggle Tabs -->
+      <div class="sidebar-floating-toggle left-toggle" id="btn-toggle-left-sidebar" title="বাম প্যানেল লুকান / দেখান">◀</div>
+      <div class="sidebar-floating-toggle right-toggle" id="btn-toggle-right-sidebar" title="ডান প্যানেল লুকান / দেখান">▶</div>
+
+      <div class="map-breadcrumb" id="map-breadcrumb">
+        <span class="bc-crumb" id="bc-bangladesh">🇧🇩 বাংলাদেশ</span>
+        <span id="bc-sep1" style="display:none; color:var(--text-muted);">›</span>
+        <span class="bc-crumb" id="bc-division" style="display:none;"></span>
+        <span id="bc-sep2" style="display:none; color:var(--text-muted);">›</span>
+        <span class="bc-crumb" id="bc-district" style="display:none;"></span>
+        <span id="bc-sep3" style="display:none; color:var(--text-muted);">›</span>
+        <span class="bc-crumb" id="bc-thana" style="display:none; color:var(--accent-blue);"></span>
+      </div>
+
+      <!-- Top Map Action Toolbar -->
+      <div class="map-top-actions">
+        <button class="map-tool-btn" id="btn-fit-map" title="ম্যাপ ফিট করুন">
+          <span>🎯</span> ফিট ম্যাপ
+        </button>
+        <button class="map-tool-btn" id="btn-zoom-in" title="একটু বড় করুন (Zoom In +0.3)">
+          <span>🔍+</span>
+        </button>
+        <button class="map-tool-btn" id="btn-zoom-out" title="একটু ছোট করুন (Zoom Out -0.3)">
+          <span>🔍-</span>
+        </button>
+        <button class="map-tool-btn" id="btn-fullscreen-map" title="ফুলস্ক্রিন ম্যাপ মোড (দুই পাশের প্যানেল লুকান)">
+          <span id="fs-icon">⛶</span> <span id="fs-text">ফুলস্ক্রিন ম্যাপ</span>
+        </button>
+      </div>
+
+      <button class="map-reset-btn" id="map-reset-btn">
+        <span>🔄</span> রিসেট ভিউ (সমগ্র বাংলাদেশ)
+      </button>
+
+      <div id="map"></div>
+    </div>
+
+    <!-- 3. RIGHT SIDEBAR (Territory Profile & 2-Column Category Grid - Matching Screenshot 2) -->
+    <aside class="right-sidebar">
+      
+      <!-- Profile Header -->
+      <div class="profile-header-box">
+        <div class="profile-title" id="profile-title">Mymensingh Division</div>
+        <div class="profile-subtitle" id="profile-subtitle">ময়মনসিংহ বিভাগ (৪ জেলা)</div>
+      </div>
+
+      <!-- Big Hero Metric Card -->
+      <div class="hero-metric-card">
+        <div class="hero-metric-left">
+          <div class="hero-big-num" id="profile-hero-num">56,923</div>
+          <div class="hero-big-lbl" id="profile-hero-lbl">মোট সক্রিয় খুচরা দোকান</div>
+        </div>
+        <div class="hero-metric-right">
+          <div class="hero-share-pill" id="profile-share-pill">5.5%</div>
+          <div class="hero-share-lbl">জাতীয় শেয়ার</div>
+        </div>
+      </div>
+
+      <!-- Category Heading -->
+      <div class="category-section-heading">
+        <span>⚡</span> ক্যাটাগরি অনুযায়ী আউটলেট ও শেয়ার:
+      </div>
+
+      <!-- 2-Column Category Grid (Screenshot 2) -->
+      <div class="profile-category-grid" id="profile-category-grid">
+        <!-- Rendered by JS -->
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- Floating Cursor Tooltip -->
+  <div id="cursor-tooltip">
+    <div class="tt-header-row">
+      <div class="tt-div-title" id="tt-title">Dhaka Division</div>
+      <span class="tt-badge-rank" id="tt-rank">Rank #1</span>
+    </div>
+
+    <div class="tt-hero-stat">
+      <div>
+        <div class="tt-hero-num" id="tt-main-num">393,973</div>
+        <div class="tt-hero-lbl" id="tt-main-lbl">মোট সক্রিয় খুচরা দোকান</div>
+      </div>
+      <div>
+        <div class="tt-hero-pct-pill" id="tt-main-pct">38.3%</div>
+      </div>
+    </div>
+
+    <div class="tt-cat-list" id="tt-cat-list">
+      <!-- Tooltip mini grid -->
+    </div>
+  </div>
+
+  <!-- SCRIPT ENGINE -->
+  <script>
+    // Representative points for labels
+    const DISTRICT_CENTERS = {"Barguna": [22.1541, 89.9764], "Barishal": [22.8231, 90.2496], "Bhola": [22.3981, 90.7674], "Jhalokati": [22.5628, 90.1262], "Patuakhali": [22.2597, 90.499], "Pirojpur": [22.5149, 89.9958], "Bandarban": [21.7711, 92.3874], "Brahmanbaria": [23.9586, 91.1134], "Chandpur": [23.2452, 90.8081], "Chattogram": [22.4239, 91.9269], "Cumilla": [23.4219, 91.0766], "Coxs Bazar": [21.3325, 92.0923], "Feni": [23.0206, 91.4018], "Khagrachhari": [23.2103, 91.9623], "Lakshmipur": [22.8631, 90.8584], "Noakhali": [22.8166, 91.1196], "Rangamati": [22.7961, 92.2233], "Dhaka": [23.7817, 90.3574], "Faridpur": [23.4661, 89.8716], "Gazipur": [24.0927, 90.4076], "Gopalganj": [23.1072, 89.8622], "Kishoreganj": [24.3364, 90.9281], "Madaripur": [23.2328, 90.1306], "Manikganj": [23.8347, 89.9431], "Munshiganj": [23.526, 90.4379], "Narayanganj": [23.7164, 90.6156], "Narsingdi": [24.0087, 90.8085], "Rajbari": [23.7352, 89.5759], "Shariatpur": [23.2294, 90.4227], "Tangail": [24.3683, 89.9972], "Bagerhat": [22.4016, 89.7524], "Chuadanga": [23.5997, 88.821], "Jashore": [23.085, 89.1261], "Jhenaidah": [23.4949, 89.1229], "Khulna": [22.5029, 89.3311], "Kushtia": [23.9426, 89.0248], "Magura": [23.471, 89.4563], "Meherpur": [23.789, 88.7012], "Narail": [23.132, 89.5286], "Satkhira": [22.474, 89.1381], "Jamalpur": [25.0012, 89.7771], "Mymensingh": [24.7222, 90.4169], "Netrokona": [24.8855, 90.7928], "Sherpur": [25.0922, 90.0951], "Bogura": [24.8323, 89.3307], "Joypurhat": [25.0615, 89.0918], "Naogaon": [24.8754, 88.739], "Natore": [24.3967, 89.0915], "Nawabganj": [24.692, 88.2611], "Pabna": [24.0806, 89.3388], "Rajshahi": [24.4138, 88.5984], "Sirajganj": [24.3967, 89.5237], "Dinajpur": [25.6429, 88.7253], "Gaibandha": [25.3432, 89.5363], "Kurigram": [25.8034, 89.6446], "Lalmonirhat": [26.1213, 89.165], "Nilphamari": [26.0203, 88.9216], "Panchagarh": [26.321, 88.5475], "Rangpur": [25.6331, 89.2625], "Thakurgaon": [25.9359, 88.3118], "Habiganj": [24.3398, 91.4299], "Moulvibazar": [24.4879, 91.882], "Sunamganj": [24.8864, 91.3904], "Sylhet": [24.8909, 91.9589]};
+    const THANA_CENTERS = {"Amtali__Barguna": [22.0614, 90.1517], "Bamna__Barguna": [22.2793, 90.057], "BargunaSadar__Barguna": [22.1107, 90.0862], "Betagi__Barguna": [22.3512, 90.1435], "Patharghata__Barguna": [22.0954, 89.9624], "Agailjhara__Barishal": [22.9762, 90.1308], "Babuganj__Barishal": [22.8333, 90.312], "Bakerganj__Barishal": [22.5195, 90.3033], "BanariPara__Barishal": [22.804, 90.139], "BarisalSadar(Kotwali)__Barishal": [22.7236, 90.3706], "Gaurnadi__Barishal": [22.977, 90.2096], "Hizla__Barishal": [22.9528, 90.5176], "Mehendiganj__Barishal": [22.8095, 90.5421], "Muladi__Barishal": [22.9239, 90.3896], "Wazirpur__Barishal": [22.8432, 90.2198], "BholaSadar__Bhola": [22.6701, 90.6523], "Burhanuddin__Bhola": [22.4844, 90.7465], "CharFasson__Bhola": [22.1326, 90.7175], "Daulatkhan__Bhola": [22.6035, 90.7068], "Lalmohan__Bhola": [22.3124, 90.7621], "Manpura__Bhola": [22.2206, 90.9676], "Tazumuddin__Bhola": [22.4053, 90.8166], "JhalokatiSadar__Jhalokati": [22.6848, 90.205], "Kanthalia__Jhalokati": [22.4243, 90.0945], "Nalchity__Jhalokati": [22.5968, 90.2785], "Rajapur__Jhalokati": [22.5561, 90.126], "Bauphal__Patuakhali": [22.4422, 90.5197], "Dashmina__Patuakhali": [22.2693, 90.5465], "Dumki__Patuakhali": [22.4414, 90.4145], "Galachipa__Patuakhali": [22.0495, 90.5283], "KalaPara__Patuakhali": [21.8935, 90.2139], "Mirzaganj__Patuakhali": [22.3492, 90.2033], "PatuakhaliSadar__Patuakhali": [22.3336, 90.3518], "Bhandaria__Pirojpur": [22.4573, 90.021], "Kawkhali__Pirojpur": [22.5925, 90.0817], "Mathbaria__Pirojpur": [22.2814, 89.9459], "Nazirpur__Pirojpur": [22.7696, 89.9723], "Nesarabad(Swarupkati)__Pirojpur": [22.7325, 90.1014], "PirojpurSadar__Pirojpur": [22.5966, 89.9986], "Zianagar__Pirojpur": [22.4667, 89.9601], "Alikadam__Bandarban": [21.6093, 92.3675], "BandarbanSadar__Bandarban": [22.1536, 92.1871], "Lama__Bandarban": [21.8021, 92.2621], "Naikhongchhari__Bandarban": [21.4254, 92.3101], "Rowangchhari__Bandarban": [22.1874, 92.3799], "Ruma__Bandarban": [22.0258, 92.4076], "Thanchi__Bandarban": [21.611, 92.5427], "Akhaura__Brahamanbaria": [23.8453, 91.1941], "Ashuganj__Brahamanbaria": [24.0165, 91.0139], "Banchharampur__Brahamanbaria": [23.7768, 90.8127], "Bijoynagar__Brahamanbaria": [23.9984, 91.232], "BrahmanbariaSadar__Brahamanbaria": [23.9498, 91.1185], "Kasba__Brahamanbaria": [23.755, 91.1449], "Nabinagar__Brahamanbaria": [23.8664, 90.9993], "Nasirnagar__Brahamanbaria": [24.1721, 91.1849], "Sarail__Brahamanbaria": [24.0949, 91.1094], "ChandpurSadar__Chandpur": [23.2305, 90.664], "Faridganj__Chandpur": [23.139, 90.7625], "HaimChar__Chandpur": [23.059, 90.6597], "Hajiganj__Chandpur": [23.2462, 90.827], "Kachua__Chandpur": [23.359, 90.8699], "MatlabDakshin__Chandpur": [23.3548, 90.7686], "MatlabUttar__Chandpur": [23.4087, 90.6477], "Shahrasti__Chandpur": [23.2098, 90.9721], "Anowara__Chattogram": [22.1858, 91.8802], "Bakalia__Chattogram": [22.3434, 91.8548], "Banshkhali__Chattogram": [22.0175, 91.9368], "BayejidBostami__Chattogram": [22.4211, 91.8018], "Boalkhali__Chattogram": [22.3842, 91.9585], "Chandanaish__Chattogram": [22.2222, 92.07], "Chandgaon__Chattogram": [22.3931, 91.865], "ChittagongPort__Chattogram": [22.2996, 91.7892], "DoubleMooring__Chattogram": [22.3317, 91.8109], "Fatikchhari__Chattogram": [22.7748, 91.7045], "Halishahar__Chattogram": [22.3332, 91.7784], "Hathazari__Chattogram": [22.5177, 91.8004], "Khulshi__Chattogram": [22.3629, 91.8043], "Kotwali__Chattogram": [22.3435, 91.8296], "Lohagara__Chattogram": [21.9896, 92.1058], "Mirsharai__Chattogram": [22.8214, 91.5355], "Pahartali__Chattogram": [22.3622, 91.7691], "Panchlaish__Chattogram": [22.3747, 91.8278], "Patenga__Chattogram": [22.2661, 91.8022], "Patiya__Chattogram": [22.2906, 91.9441], "Rangunia__Chattogram": [22.4627, 92.056], "Raozan__Chattogram": [22.5348, 91.909], "Sandwip__Chattogram": [22.5123, 91.4779], "Satkania__Chattogram": [22.1088, 92.0809], "Sitakunda__Chattogram": [22.5331, 91.711], "Barura__Cumilla": [23.3411, 91.0357], "BrahmanPara__Cumilla": [23.6462, 91.1077], "Burichang__Cumilla": [23.5354, 91.1288], "Chandina__Cumilla": [23.423, 90.9459], "Chauddagram__Cumilla": [23.2052, 91.2941], "ComillaAdarshaSadar__Cumilla": [23.47, 91.182], "ComillaSadarDakshin__Cumilla": [23.3413, 91.1562], "Daudkandi__Cumilla": [23.503, 90.785], "Debidwar__Cumilla": [23.5921, 91.0081], "Homna__Cumilla": [23.6805, 90.8058], "Laksam__Cumilla": [23.2477, 91.0958], "Manoharganj__Cumilla": [23.1448, 91.0671], "Meghna__Cumilla": [23.6188, 90.6949], "Muradnagar__Cumilla": [23.6506, 90.9288], "Nangalkot__Cumilla": [23.1504, 91.1943], "Titas__Cumilla": [23.5908, 90.7992], "Chakaria__Cox'SBazar": [21.7544, 92.0514], "Cox'SBazarSadar__Cox'SBazar": [21.5029, 92.0341], "Kutubdia__Cox'SBazar": [21.8433, 91.8665], "Maheshkhali__Cox'SBazar": [21.6033, 91.9332], "Pekua__Cox'SBazar": [21.8148, 91.9647], "Ramu__Cox'SBazar": [21.4469, 92.1473], "Teknaf__Cox'SBazar": [20.9526, 92.2391], "Ukhia__Cox'SBazar": [21.2171, 92.1078], "Chhagalnaiya__Feni": [23.0044, 91.5176], "Daganbhuiyan__Feni": [22.9718, 91.3113], "FeniSadar__Feni": [22.9867, 91.433], "Fulgazi__Feni": [23.1109, 91.4598], "Parshuram__Feni": [23.2033, 91.4352], "Sonagazi__Feni": [22.8591, 91.4073], "Dighinala__Khagrachhari": [23.4055, 92.0415], "KhagrachhariSadar__Khagrachhari": [23.137, 91.9815], "Lakshmichhari__Khagrachhari": [22.7858, 91.9162], "Mahalchhari__Khagrachhari": [22.9476, 92.0367], "Manikchhari__Khagrachhari": [22.8407, 91.8211], "Matiranga__Khagrachhari": [23.1486, 91.86], "Panchhari__Khagrachhari": [23.3208, 91.9095], "Ramgarh__Khagrachhari": [22.9442, 91.7932], "Kamalnagar__Lakshmipur": [22.7659, 90.8746], "LakshmipurSadar__Lakshmipur": [22.9278, 90.8758], "Ramganj__Lakshmipur": [23.0932, 90.8689], "Ramgati__Lakshmipur": [22.6439, 90.944], "Roypur__Lakshmipur": [22.9939, 90.7242], "Begumganj__Noakhali": [22.9318, 91.1032], "Chatkhil__Noakhali": [23.0516, 90.9534], "Companiganj__Noakhali": [22.7771, 91.3115], "Hatiya__Noakhali": [22.2516, 91.129], "Kabirhat__Noakhali": [22.8131, 91.1923], "NoakhaliSadar(Sudharam)__Noakhali": [22.7849, 91.0421], "Senbagh__Noakhali": [22.9808, 91.2273], "Sonaimuri__Noakhali": [23.0364, 91.063], "Subarnachar__Noakhali": [22.6371, 91.1355], "BaghaiChhari__Rangamati": [23.3562, 92.2211], "Barkal__Rangamati": [22.8903, 92.3652], "BelaiChhari__Rangamati": [22.2195, 92.5358], "JuraiChhari__Rangamati": [22.6017, 92.4354], "Kaptai__Rangamati": [22.4667, 92.2086], "Kawkhali(Betbunia)__Rangamati": [22.6041, 91.9795], "Langadu__Rangamati": [22.9505, 92.2172], "Naniarchar__Rangamati": [22.8293, 92.0766], "Rajasthali__Rangamati": [22.3934, 92.2743], "RangamatiSadar__Rangamati": [22.6598, 92.1933], "Adabor__Dhaka": [23.7686, 90.3523], "Badda__Dhaka": [23.7998, 90.4532], "Bangshal__Dhaka": [23.7165, 90.4055], "BimanBandar__Dhaka": [23.8461, 90.4077], "Cantonment__Dhaka": [23.8106, 90.4068], "ChakBazar__Dhaka": [23.7161, 90.3932], "Dakshinkhan__Dhaka": [23.8654, 90.4138], "DarusSalam__Dhaka": [23.7876, 90.3436], "Demra__Dhaka": [23.7236, 90.4819], "Dhamrai__Dhaka": [23.9325, 90.1476], "Dhanmondi__Dhaka": [23.7438, 90.3734], "Dohar__Dhaka": [23.5938, 90.1126], "Gendaria__Dhaka": [23.7051, 90.4229], "Gulshan__Dhaka": [23.7939, 90.4127], "Hazaribagh__Dhaka": [23.7419, 90.3581], "Jatrabari__Dhaka": [23.7158, 90.4511], "Kadamtali__Dhaka": [23.6863, 90.4479], "Kafrul__Dhaka": [23.7955, 90.3833], "Kalabagan__Dhaka": [23.7458, 90.3866], "KamrangirChar__Dhaka": [23.7137, 90.3669], "Keraniganj__Dhaka": [23.6977, 90.3439], "Khilgaon__Dhaka": [23.7625, 90.4688], "Khilkhet__Dhaka": [23.8376, 90.4466], "Kotwali__Dhaka": [23.7088, 90.4076], "Lalbagh__Dhaka": [23.7216, 90.3754], "Mirpur__Dhaka": [23.7924, 90.362], "Mohammadpur__Dhaka": [23.7604, 90.3553], "Motijheel__Dhaka": [23.7362, 90.4223], "Nawabganj__Dhaka": [23.6585, 90.1695], "NewMarket__Dhaka": [23.7345, 90.3793], "Pallabi__Dhaka": [23.828, 90.3653], "Paltan__Dhaka": [23.7291, 90.4134], "Ramna__Dhaka": [23.7487, 90.4042], "Rampura__Dhaka": [23.7585, 90.4209], "Sabujbagh__Dhaka": [23.7322, 90.4417], "Savar__Dhaka": [23.8901, 90.2896], "ShahAli__Dhaka": [23.812, 90.3481], "Shahbagh__Dhaka": [23.7364, 90.3981], "Sher-e-banglaNagar__Dhaka": [23.7659, 90.3766], "Shyampur__Dhaka": [23.6976, 90.4283], "Sutrapur__Dhaka": [23.7136, 90.4154], "Tejgaon__Dhaka": [23.7616, 90.3894], "TejgaonInd.Area__Dhaka": [23.7604, 90.4022], "Turag__Dhaka": [23.8608, 90.3686], "UttarKhan__Dhaka": [23.8754, 90.4403], "Uttara__Dhaka": [23.8739, 90.3931], "Alfadanga__Faridpur": [23.2997, 89.6712], "Bhanga__Faridpur": [23.3813, 89.9882], "Boalmari__Faridpur": [23.4085, 89.676], "CharBhadrasan__Faridpur": [23.5918, 89.9764], "FaridpurSadar__Faridpur": [23.6045, 89.8221], "Madhukhali__Faridpur": [23.532, 89.6326], "Nagarkanda__Faridpur": [23.432, 89.8898], "Sadarpur__Faridpur": [23.4724, 90.0662], "Saltha__Faridpur": [23.4127, 89.7993], "GazipurSadar__Gazipur": [24.0298, 90.3815], "Kaliakair__Gazipur": [24.1259, 90.2824], "Kaliganj__Gazipur": [23.9466, 90.5554], "KaliganjPaurashava__Gazipur": [23.9332, 90.5795], "Kapasia__Gazipur": [24.1478, 90.6149], "Sreepur__Gazipur": [24.1765, 90.4896], "GopalganjSadar__Gopalganj": [23.0663, 89.848], "Kashiani__Gopalganj": [23.1964, 89.7713], "KotaliPara__Gopalganj": [22.9976, 90.0056], "Muksudpur__Gopalganj": [23.2655, 89.9247], "TungiPara__Gopalganj": [22.9274, 89.8838], "Austagram__Kishoreganj": [24.3225, 91.1257], "Bajitpur__Kishoreganj": [24.2236, 90.9331], "Bhairab__Kishoreganj": [24.1005, 90.9874], "Hossainpur__Kishoreganj": [24.4542, 90.656], "Itna__Kishoreganj": [24.5438, 91.098], "Karimganj__Kishoreganj": [24.45, 90.9073], "Katiadi__Kishoreganj": [24.2722, 90.8006], "KishoreganjSadar__Kishoreganj": [24.4372, 90.7684], "KuliarChar__Kishoreganj": [24.1545, 90.885], "Mithamain__Kishoreganj": [24.4284, 91.0977], "Nikli__Kishoreganj": [24.345, 90.9543], "Pakundia__Kishoreganj": [24.3125, 90.7005], "Tarail__Kishoreganj": [24.5519, 90.8897], "Kalkini__Madaripur": [23.0658, 90.2798], "MadaripurSadar__Madaripur": [23.2047, 90.1819], "Rajoir__Madaripur": [23.2229, 90.0549], "ShibChar__Madaripur": [23.3736, 90.1665], "Daulatpur__Manikganj": [23.9591, 89.8192], "Ghior__Manikganj": [23.863, 89.9281], "Harirampur__Manikganj": [23.7161, 89.9508], "ManikganjSadar__Manikganj": [23.8167, 90.0171], "Saturia__Manikganj": [23.9633, 89.9966], "Shibalaya__Manikganj": [23.827, 89.8433], "Singair__Manikganj": [23.787, 90.1497], "Gazaria__Munshiganj": [23.5513, 90.6306], "Lohajang__Munshiganj": [23.4713, 90.3111], "MunshiganjSadar__Munshiganj": [23.4761, 90.5447], "Serajdikhan__Munshiganj": [23.5874, 90.3926], "Sreenagar__Munshiganj": [23.5544, 90.2568], "Tongibari__Munshiganj": [23.4794, 90.4523], "Araihazar__Narayanganj": [23.7655, 90.6569], "Bandar__Narayanganj": [23.641, 90.5381], "NarayanganjSadar__Narayanganj": [23.6274, 90.488], "Rupganj__Narayanganj": [23.8038, 90.5358], "Sonargaon__Narayanganj": [23.6531, 90.6005], "Belabo__Narsingdi": [24.1071, 90.8231], "Manohardi__Narsingdi": [24.158, 90.7281], "NarsingdiSadar__Narsingdi": [23.8601, 90.7073], "Palash__Narsingdi": [23.9633, 90.6644], "Roypura__Narsingdi": [23.9582, 90.862], "Shibpur__Narsingdi": [24.0186, 90.7475], "BaliaKandi__Rajbari": [23.6495, 89.5372], "Goalandaghat__Rajbari": [23.7537, 89.7757], "Kalukhali__Rajbari": [23.7421, 89.5102], "Pangsha__Rajbari": [23.7873, 89.3843], "RajbariSadar__Rajbari": [23.6981, 89.6692], "Bhedarganj__Shariatpur": [23.2737, 90.5251], "Damudya__Shariatpur": [23.1394, 90.4307], "Gosairhat__Shariatpur": [23.0846, 90.4334], "Naria__Shariatpur": [23.3123, 90.4413], "ShariatpurSadar__Shariatpur": [23.2162, 90.3151], "Zanjira__Shariatpur": [23.3561, 90.3347], "Basail__Tangail": [24.2356, 90.041], "Bhuapur__Tangail": [24.4817, 89.8152], "Delduar__Tangail": [24.1413, 89.9279], "Dhanbari__Tangail": [24.6884, 89.9505], "Ghatail__Tangail": [24.48, 90.0624], "Gopalpur__Tangail": [24.5641, 89.9126], "Kalihati__Tangail": [24.3582, 89.9441], "Madhupur__Tangail": [24.652, 90.0643], "Mirzapur__Tangail": [24.1186, 90.1064], "Nagarpur__Tangail": [24.0684, 89.867], "Sakhipur__Tangail": [24.3089, 90.1608], "TangailSadar__Tangail": [24.2529, 89.8828], "BagerhatSadar__Bagerhat": [22.6767, 89.759], "Chitalmari__Bagerhat": [22.8041, 89.8457], "Fakirhat__Bagerhat": [22.7355, 89.6664], "Kachua__Bagerhat": [22.6529, 89.8787], "Mollahat__Bagerhat": [22.887, 89.7731], "Mongla__Bagerhat": [22.2033, 89.643], "Morrelganj__Bagerhat": [22.4819, 89.8015], "Rampal__Bagerhat": [22.5906, 89.6301], "Sarankhola__Bagerhat": [22.1152, 89.7929], "Alamdanga__Chuadanga": [23.7277, 88.8936], "ChuadangaSadar__Chuadanga": [23.5892, 88.9067], "Damurhuda__Chuadanga": [23.5904, 88.7342], "JibanNagar__Chuadanga": [23.4389, 88.8503], "Abhaynagar__Jashore": [23.0198, 89.4227], "BagherPara__Jashore": [23.2555, 89.3428], "Chaugachha__Jashore": [23.2713, 89.0225], "Jhikargachha__Jashore": [23.069, 89.057], "Keshabpur__Jashore": [22.8704, 89.2371], "Kotwali__Jashore": [23.1974, 89.2043], "Manirampur__Jashore": [23.0123, 89.2085], "Sharsha__Jashore": [23.0566, 88.9386], "Harinakunda__Jhenaidah": [23.6587, 89.0673], "JhenaidahSadar__Jhenaidah": [23.5134, 89.1419], "Kaliganj__Jhenaidah": [23.3712, 89.1492], "Kotchandpur__Jhenaidah": [23.4535, 89.0045], "Maheshpur__Jhenaidah": [23.319, 88.8564], "Shailkupa__Jhenaidah": [23.6655, 89.2374], "Batiaghata__Khulna": [22.7109, 89.498], "Dacope__Khulna": [22.3287, 89.5361], "Daulatpur__Khulna": [22.8725, 89.5078], "Dighalia__Khulna": [22.9214, 89.5485], "Dumuria__Khulna": [22.7957, 89.3753], "Khalishpur__Khulna": [22.8505, 89.5346], "KhanJahanAli__Khulna": [22.9179, 89.4892], "KhulnaSadar__Khulna": [22.8012, 89.5645], "Koyra__Khulna": [22.3113, 89.3429], "Paikgachha__Khulna": [22.5918, 89.342], "Phultala__Khulna": [22.9642, 89.4549], "Rupsa__Khulna": [22.8212, 89.634], "Sonadanga__Khulna": [22.8192, 89.5459], "Terokhada__Khulna": [22.9092, 89.6487], "Bheramara__Kushtia": [24.0605, 88.9759], "Daulatpur__Kushtia": [24.0303, 88.8297], "Khoksa__Kushtia": [23.8126, 89.2926], "Kumarkhali__Kushtia": [23.8651, 89.2262], "KushtiaSadar__Kushtia": [23.8305, 89.0854], "Mirpur__Kushtia": [23.8959, 88.9854], "MaguraSadar__Magura": [23.4404, 89.3949], "Mohammadpur__Magura": [23.3987, 89.5606], "Shalikha__Magura": [23.3509, 89.35], "Sreepur__Magura": [23.5981, 89.4082], "Gangni__Meherpur": [23.8573, 88.7596], "MeherpurSadar__Meherpur": [23.7721, 88.6416], "MujibNagar__Meherpur": [23.6729, 88.6053], "Kalia__Narail": [23.0215, 89.632], "Lohagara__Narail": [23.1996, 89.6377], "NarailSadar__Narail": [23.1602, 89.5034], "Assasuni__Satkhira": [22.4983, 89.2056], "Debhata__Satkhira": [22.5936, 88.9939], "Kalaroa__Satkhira": [22.8786, 89.0345], "Kaliganj__Satkhira": [22.4409, 89.0669], "SatkhiraSadar__Satkhira": [22.709, 89.0439], "Shyamnagar__Satkhira": [22.2029, 89.1468], "Tala__Satkhira": [22.7315, 89.2172], "Bakshiganj__Jamalpur": [25.2086, 89.8402], "Dewanganj__Jamalpur": [25.2713, 89.7728], "Islampur__Jamalpur": [25.0692, 89.7255], "JamalpurSadar__Jamalpur": [24.8462, 90.0087], "Madarganj__Jamalpur": [24.8853, 89.723], "Melandaha__Jamalpur": [24.967, 89.8351], "Sarishabari__Jamalpur": [24.6999, 89.84], "Bhaluka__Mymensingh": [24.3849, 90.3576], "Dhobaura__Mymensingh": [25.0959, 90.5219], "Fulbaria__Mymensingh": [24.5812, 90.2358], "Gaffargaon__Mymensingh": [24.3992, 90.5626], "Gauripur__Mymensingh": [24.7648, 90.6128], "Haluaghat__Mymensingh": [25.0928, 90.3607], "Ishwarganj__Mymensingh": [24.6461, 90.6043], "Muktagachha__Mymensingh": [24.7297, 90.2239], "MymensinghSadar__Mymensingh": [24.7659, 90.4096], "Nandail__Mymensingh": [24.5555, 90.6634], "Phulpur__Mymensingh": [24.8792, 90.4222], "Trishal__Mymensingh": [24.5663, 90.4189], "Atpara__Netrokona": [24.7932, 90.8602], "Barhatta__Netrokona": [24.9213, 90.8972], "Durgapur__Netrokona": [25.0915, 90.6892], "Kalmakanda__Netrokona": [25.0694, 90.8583], "Kendua__Netrokona": [24.6788, 90.7964], "Khaliajuri__Netrokona": [24.7191, 91.1027], "Madan__Netrokona": [24.6759, 90.978], "Mohanganj__Netrokona": [24.8264, 91.018], "NetrokonaSadar__Netrokona": [24.8955, 90.7329], "Purbadhala__Netrokona": [24.916, 90.595], "Jhenaigati__Sherpur": [25.1741, 90.0637], "Nakla__Sherpur": [24.9605, 90.1822], "Nalitabari__Sherpur": [25.1213, 90.1732], "SherpurSadar__Sherpur": [25.0024, 90.0057], "Sreebardi__Sherpur": [25.1779, 89.9535], "Adamdighi__Bogura": [24.7939, 89.066], "BograSadar__Bogura": [24.9022, 89.3548], "Dhunat__Bogura": [24.6718, 89.5175], "Dhupchanchia__Bogura": [24.8849, 89.1318], "Gabtali__Bogura": [24.8905, 89.4672], "Kahaloo__Bogura": [24.8254, 89.2482], "Nandigram__Bogura": [24.6881, 89.2261], "Sariakandi__Bogura": [24.8937, 89.5999], "Shajahanpur__Bogura": [24.7612, 89.3773], "Sherpur__Bogura": [24.6308, 89.425], "Shibganj__Bogura": [25.017, 89.3203], "Sonatola__Bogura": [24.9915, 89.5112], "Akkelpur__Joypurhat": [24.9505, 89.0454], "JoypurhatSadar__Joypurhat": [25.1166, 89.0401], "Kalai__Joypurhat": [25.0812, 89.2147], "Khetlal__Joypurhat": [25.0344, 89.0921], "Panchbibi__Joypurhat": [25.2017, 89.0684], "Atrai__Naogaon": [24.6206, 89.0116], "Badalgachhi__Naogaon": [24.966, 88.9289], "Dhamoirhat__Naogaon": [25.1145, 88.8721], "Mahadebpur__Naogaon": [24.9105, 88.763], "Manda__Naogaon": [24.7446, 88.7201], "NaogaonSadar__Naogaon": [24.8169, 88.9152], "Niamatpur__Naogaon": [24.8265, 88.5231], "Patnitala__Naogaon": [25.0946, 88.6848], "Porsha__Naogaon": [24.9916, 88.5274], "Raninagar__Naogaon": [24.7124, 88.995], "Sapahar__Naogaon": [25.1117, 88.5339], "BagatiPara__Natore": [24.3044, 88.9578], "Baraigram__Natore": [24.258, 89.1666], "Gurudaspur__Natore": [24.3715, 89.1853], "Lalpur__Natore": [24.1953, 88.9923], "NatoreSadar__Natore": [24.4537, 88.9735], "Singra__Natore": [24.5444, 89.2174], "Bholahat__Nawabganj": [24.8841, 88.2085], "Gomastapur__Nawabganj": [24.8537, 88.3558], "Nachole__Nawabganj": [24.7374, 88.3712], "NawabganjSadar__Nawabganj": [24.5667, 88.1984], "Shibganj__Nawabganj": [24.7182, 88.1717], "Atgharia__Pabna": [24.1208, 89.2257], "Bera__Pabna": [23.9504, 89.6445], "Bhangura__Pabna": [24.2377, 89.3911], "Chatmohar__Pabna": [24.2312, 89.2717], "Faridpur__Pabna": [24.1604, 89.4632], "Ishwardi__Pabna": [24.0568, 89.087], "PabnaSadar__Pabna": [23.9855, 89.3095], "Santhia__Pabna": [24.0529, 89.5139], "Sujanagar__Pabna": [23.9018, 89.4957], "Bagha__Rajshahi": [24.2119, 88.804], "Baghmara__Rajshahi": [24.5936, 88.8133], "Boalia__Rajshahi": [24.3775, 88.6212], "Charghat__Rajshahi": [24.301, 88.7909], "Durgapur__Rajshahi": [24.4591, 88.7646], "Godagari__Rajshahi": [24.4852, 88.4069], "Matihar__Rajshahi": [24.3689, 88.6482], "Mohanpur__Rajshahi": [24.5572, 88.6515], "Paba__Rajshahi": [24.4059, 88.6689], "Puthia__Rajshahi": [24.4317, 88.8493], "Rajpara__Rajshahi": [24.3801, 88.5694], "ShahMakhdum__Rajshahi": [24.3997, 88.6083], "Tanore__Rajshahi": [24.602, 88.4969], "Belkuchi__Sirajganj": [24.2948, 89.709], "Chauhali__Sirajganj": [24.1444, 89.7641], "Kamarkhanda__Sirajganj": [24.3739, 89.6598], "Kazipur__Sirajganj": [24.6637, 89.6673], "Royganj__Sirajganj": [24.4855, 89.5168], "Shahjadpur__Sirajganj": [24.1617, 89.626], "SirajganjSadar__Sirajganj": [24.4817, 89.6829], "Tarash__Sirajganj": [24.45, 89.3579], "UllahPara__Sirajganj": [24.3174, 89.5243], "Biral__Dinajpur": [25.6352, 88.5388], "Birampur__Dinajpur": [25.396, 88.9873], "Birganj__Dinajpur": [25.9343, 88.6133], "Bochaganj__Dinajpur": [25.7865, 88.4456], "Chirirbandar__Dinajpur": [25.6596, 88.7729], "DinajpurSadar__Dinajpur": [25.6296, 88.6654], "Fulbari__Dinajpur": [25.4768, 88.9044], "Ghoraghat__Dinajpur": [25.2934, 89.2081], "Hakimpur__Dinajpur": [25.2943, 89.0777], "Kaharole__Dinajpur": [25.8103, 88.5939], "Khansama__Dinajpur": [25.8958, 88.7659], "Nawabganj__Dinajpur": [25.4303, 89.0912], "Parbatipur__Dinajpur": [25.6373, 88.9121], "Fulchhari__Gaibandha": [25.2405, 89.6581], "GaibandhaSadar__Gaibandha": [25.3338, 89.5207], "Gobindaganj__Gaibandha": [25.1463, 89.3534], "Palashbari__Gaibandha": [25.2507, 89.393], "Sadullapur__Gaibandha": [25.4007, 89.4311], "Saghatta__Gaibandha": [25.1374, 89.5579], "Sundarganj__Gaibandha": [25.5233, 89.5607], "Bhurungamari__Kurigram": [26.1298, 89.6833], "CharRajibpur__Kurigram": [25.4468, 89.768], "Chilmari__Kurigram": [25.5553, 89.7142], "KurigramSadar__Kurigram": [25.8322, 89.7023], "Nageshwari__Kurigram": [25.9604, 89.7346], "Phulbari__Kurigram": [25.9566, 89.5628], "Rajarhat__Kurigram": [25.8015, 89.5301], "Raumari__Kurigram": [25.5758, 89.8306], "Ulipur__Kurigram": [25.6873, 89.6477], "Aditmari__Lalmonirhat": [25.947, 89.3754], "Hatibandha__Lalmonirhat": [26.1234, 89.1641], "Kaliganj__Lalmonirhat": [25.977, 89.2272], "LalmonirhatSadar__Lalmonirhat": [25.8903, 89.4693], "Patgram__Lalmonirhat": [26.3374, 89.0422], "Dimla__Nilphamari": [26.1776, 88.959], "Domar__Nilphamari": [26.168, 88.8379], "Jaldhaka__Nilphamari": [26.0367, 88.9905], "Kishoreganj__Nilphamari": [25.8986, 89.029], "NilphamariSadar__Nilphamari": [25.9321, 88.8752], "Saidpur__Nilphamari": [25.7978, 88.902], "Atwari__Panchagarh": [26.2769, 88.4125], "Boda__Panchagarh": [26.202, 88.6083], "Debiganj__Panchagarh": [26.1593, 88.7184], "PanchagarhSadar__Panchagarh": [26.3764, 88.6008], "Tentulia__Panchagarh": [26.5189, 88.4207], "Badarganj__Rangpur": [25.6457, 89.0639], "Gangachara__Rangpur": [25.8835, 89.2034], "Kaunia__Rangpur": [25.7604, 89.3912], "MithaPukur__Rangpur": [25.5577, 89.2562], "Pirgachha__Rangpur": [25.6538, 89.4407], "Pirganj__Rangpur": [25.4108, 89.2596], "RangpurSadar__Rangpur": [25.7445, 89.1993], "Taraganj__Rangpur": [25.7812, 89.0277], "Baliadangi__Thakurgaon": [26.0979, 88.2538], "Haripur__Thakurgaon": [25.8883, 88.1508], "Pirganj__Thakurgaon": [25.8216, 88.3242], "Ranisankail__Thakurgaon": [25.9337, 88.2626], "ThakurgaonSadar__Thakurgaon": [26.0537, 88.4648], "Ajmiriganj__Habiganj": [24.5651, 91.2951], "Bahubal__Habiganj": [24.3644, 91.5452], "Baniachong__Habiganj": [24.5236, 91.404], "Chunarughat__Habiganj": [24.1775, 91.5119], "HabiganjSadar__Habiganj": [24.3521, 91.4156], "Lakhai__Habiganj": [24.298, 91.2497], "Madhabpur__Habiganj": [24.1226, 91.3593], "Nabiganj__Habiganj": [24.5534, 91.5671], "Barlekha__Maulvibazar": [24.7148, 92.1693], "Juri__Maulvibazar": [24.5245, 92.2037], "Kamalganj__Maulvibazar": [24.2881, 91.8636], "Kulaura__Maulvibazar": [24.4892, 92.0247], "MaulviBazarSadar__Maulvibazar": [24.5158, 91.7121], "Rajnagar__Maulvibazar": [24.5479, 91.8547], "Sreemangal__Maulvibazar": [24.3052, 91.7092], "Bishwambarpur__Sunamganj": [25.1032, 91.3275], "Chhatak__Sunamganj": [24.9792, 91.6255], "DakshinSunamganj__Sunamganj": [24.9211, 91.4027], "Derai__Sunamganj": [24.7705, 91.336], "Dharampasha__Sunamganj": [25.0069, 91.0212], "Dowarabazar__Sunamganj": [25.0682, 91.5419], "Jagannathpur__Sunamganj": [24.7467, 91.5672], "Jamalganj__Sunamganj": [24.9327, 91.2278], "Sulla__Sunamganj": [24.6899, 91.3013], "SunamganjSadar__Sunamganj": [25.0453, 91.3673], "Tahirpur__Sunamganj": [25.1129, 91.1483], "Balaganj__Sylhet": [24.6959, 91.7772], "BeaniBazar__Sylhet": [24.8539, 92.1665], "Bishwanath__Sylhet": [24.8399, 91.7338], "Companiganj__Sylhet": [25.074, 91.7921], "DakshinSurma__Sylhet": [24.8158, 91.8658], "Fenchuganj__Sylhet": [24.6983, 91.9657], "Golabganj__Sylhet": [24.8123, 92.0239], "Gowainghat__Sylhet": [25.0716, 91.973], "Jaintiapur__Sylhet": [25.0536, 92.1241], "Kanaighat__Sylhet": [24.9908, 92.2543], "SylhetSadar__Sylhet": [24.9409, 91.8454], "Zakiganj__Sylhet": [24.9294, 92.3498]};
+
+    // Categories Taxonomy
+    const CATEGORIES = {
+      "all": {
+        "id": "all",
+        "name": "সমস্ত ক্যাটাগরি (All Outlets)",
+        "short_name": "সমস্ত ক্যাটাগরি",
+        "icon": "🌟",
+        "color": "#0284C7",
+        "total_outlets": 1027663
+      },
+      "tea": {
+        "id": "tea",
+        "name": "চা পাতা (Tea & Hot Beverages)",
+        "short_name": "চা পাতা",
+        "icon": "🍵",
+        "color": "#0D9488",
+        "total_outlets": 184884
+      },
+      "chips": {
+        "id": "chips",
+        "name": "চিপস ও স্ন্যাক্স (Chips & Snacks)",
+        "short_name": "চিপস ও স্ন্যাক্স",
+        "icon": "🍟",
+        "color": "#EA580C",
+        "total_outlets": 155270
+      },
+      "oil": {
+        "id": "oil",
+        "name": "ভোজ্য তেল (Edible Oil)",
+        "short_name": "ভোজ্য তেল",
+        "icon": "🛢️",
+        "color": "#0284C7",
+        "total_outlets": 257580
+      },
+      "biscuits": {
+        "id": "biscuits",
+        "name": "বিস্কুট ও বেকারি (Bakery & Biscuits)",
+        "short_name": "বিস্কুট ও বেকারি",
+        "icon": "🍪",
+        "color": "#F59E0B",
+        "total_outlets": 133037
+      },
+      "dairy": {
+        "id": "dairy",
+        "name": "দুধ ও মিষ্টি (Dairy & Milk)",
+        "short_name": "দুধ ও মিষ্টি",
+        "icon": "🥛",
+        "color": "#2563EB",
+        "total_outlets": 145400
+      },
+      "staples": {
+        "id": "staples",
+        "name": "আটা ও চাল (Flour & Rice)",
+        "short_name": "আটা ও চাল",
+        "icon": "🌾",
+        "color": "#D97706",
+        "total_outlets": 144510
+      },
+      "protein": {
+        "id": "protein",
+        "name": "ফ্রোজেন ও এগ (Protein & Agro)",
+        "short_name": "ফ্রোজেন ও এগ",
+        "icon": "🍗",
+        "color": "#DC2626",
+        "total_outlets": 90115
+      },
+      "noodles": {
+        "id": "noodles",
+        "name": "নুডলস ও পাস্তা (Noodles)",
+        "short_name": "নুডলস",
+        "icon": "🍜",
+        "color": "#9333EA",
+        "total_outlets": 44120
+      },
+      "beverages": {
+        "id": "beverages",
+        "name": "জুস ও পানীয় (Beverages & Juice)",
+        "short_name": "জুস ও পানীয়",
+        "icon": "🧃",
+        "color": "#E11D48",
+        "total_outlets": 55200
+      },
+      "spices": {
+        "id": "spices",
+        "name": "মশলা (Spices & Culinary)",
+        "short_name": "মশলা",
+        "icon": "🌶️",
+        "color": "#16A34A",
+        "total_outlets": 23450
+      },
+      "tobacco": {
+        "id": "tobacco",
+        "name": "টোবাকো ও মুখরোচক (Tobacco)",
+        "short_name": "টোবাকো",
+        "icon": "🚬",
+        "color": "#475569",
+        "total_outlets": 3510
+      }
+    };
+
+    // Division Signature Pastel Colors
+    const DIVISION_COLORS = {
+      'Dhaka': '#60A5FA',       // Blue
+      'Chattogram': '#34D399',  // Emerald Green
+      'Rajshahi': '#FBBF24',    // Warm Amber
+      'Khulna': '#F472B6',      // Pink
+      'Barishal': '#A78BFA',    // Lavender/Purple
+      'Sylhet': '#38BDF8',      // Sky Blue
+      'Rangpur': '#2DD4BF',     // Teal
+      'Mymensingh': '#FB923C'   // Orange
+    };
+
+    // Division Stripe Colors (Matching Screenshot 1 border-left)
+    const DIVISION_STRIPE_COLORS = {
+      'Dhaka': '#3B82F6',
+      'Chattogram': '#10B981',
+      'Rajshahi': '#F59E0B',
+      'Khulna': '#EC4899',
+      'Barishal': '#8B5CF6',
+      'Sylhet': '#06B6D4',
+      'Rangpur': '#14B8A6',
+      'Mymensingh': '#F97316'
+    };
+
+    const DIV_LABEL_COORDS = {
+      'Dhaka': [23.95, 90.35],
+      'Chattogram': [22.45, 91.95],
+      'Rajshahi': [24.45, 88.80],
+      'Khulna': [22.80, 89.35],
+      'Rangpur': [25.75, 89.20],
+      'Mymensingh': [24.75, 90.40],
+      'Sylhet': [24.75, 91.80],
+      'Barishal': [22.60, 90.35]
+    };
+
+    // Curated Harmonious Pastel Palettes (Matching User Image 2 & Image 3)
+    const DHAKA_DISTRICT_COLORS = {
+      'Tangail': '#C084FC',      // Purple / Orchid
+      'Kishoreganj': '#818CF8',  // Lavender / Periwinkle
+      'Gazipur': '#F59E0B',      // Golden Amber
+      'Narsingdi': '#84CC16',    // Lime Green
+      'Manikganj': '#2DD4BF',    // Turquoise / Teal
+      'Dhaka': '#60A5FA',        // Sky Blue
+      'Narayanganj': '#93C5FD',  // Soft Periwinkle
+      'Munshiganj': '#FB923C',   // Warm Orange
+      'Rajbari': '#F43F5E',      // Rose / Coral Red
+      'Faridpur': '#34D399',     // Mint / Seafoam
+      'Madaripur': '#38BDF8',    // Cyan / Blue
+      'Shariatpur': '#0EA5E9',   // Vivid Sky Blue
+      'Gopalganj': '#EC4899'     // Magenta / Pink
+    };
+
+    const GAZIPUR_THANA_COLORS = {
+      'Sreepur': '#FB7185',           // Rose / Mauve Pink
+      'Kapasia': '#FBBF24',           // Amber Yellow
+      'Kaliakair': '#34D399',         // Teal / Emerald Green
+      'GazipurSadar': '#60A5FA',      // Sky Blue
+      'Gazipur Sadar': '#60A5FA',
+      'Kaliganj': '#A78BFA',          // Lavender / Purple
+      'KaliganjPaurashava': '#818CF8',// Light Lavender / Periwinkle
+      'Kaliganj Paurashava': '#818CF8'
+    };
+
+    const PASTEL_PALETTE = [
+      '#60A5FA', '#F59E0B', '#34D399', '#FB7185',
+      '#A78BFA', '#FB923C', '#2DD4BF', '#84CC16',
+      '#C084FC', '#EC4899', '#38BDF8', '#93C5FD'
+    ];
+
+    function getDistrictColor(distName, divName) {
+      if (divName && divName.toLowerCase() === 'dhaka' && DHAKA_DISTRICT_COLORS[distName]) {
+        return DHAKA_DISTRICT_COLORS[distName];
+      }
+      let hash = 0;
+      for (let i = 0; i < distName.length; i++) {
+        hash = distName.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return PASTEL_PALETTE[Math.abs(hash) % PASTEL_PALETTE.length];
+    }
+
+    function getThanaColor(thName, distName) {
+      if (distName && distName.toLowerCase() === 'gazipur') {
+        const clean = thName.replace(/\s+/g, '');
+        if (GAZIPUR_THANA_COLORS[clean]) return GAZIPUR_THANA_COLORS[clean];
+        if (GAZIPUR_THANA_COLORS[thName]) return GAZIPUR_THANA_COLORS[thName];
+      }
+      let hash = 0;
+      const combined = thName + '_' + (distName || '');
+      for (let i = 0; i < combined.length; i++) {
+        hash = combined.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return PASTEL_PALETTE[Math.abs(hash) % PASTEL_PALETTE.length];
+    }
+
+    // State
+    let currentLevel = 'division'; // 'division' | 'district' | 'thana'
+    let currentCategory = 'all';
+    let selectedDivision = null;
+    let selectedDistrict = null;
+    let selectedThana = null;
+
+    // Initialize Leaflet Map (Smooth & Fine Fractional Zoom)
+    const map = L.map('map', {
+      center: [23.75, 90.35],
+      zoom: 7.3,
+      minZoom: 6,
+      maxZoom: 15,
+      zoomSnap: 0.25,
+      zoomDelta: 0.25,
+      wheelPxPerZoomLevel: 120,
+      zoomControl: true,
+      preferCanvas: true
+    });
+
+    // Layers
+    let baseDistrictPolygonLayer = null;
+    let highlightPolygonLayer = null;
+    let labelLayer = L.layerGroup().addTo(map);
+
+    // DOM Elements
+    const mapContainer = document.getElementById('map-container');
+    const tooltip = document.getElementById('cursor-tooltip');
+    const ttTitle = document.getElementById('tt-title');
+    const ttRank = document.getElementById('tt-rank');
+    const ttMainNum = document.getElementById('tt-main-num');
+    const ttMainLbl = document.getElementById('tt-main-lbl');
+    const ttMainPct = document.getElementById('tt-main-pct');
+    const ttCatList = document.getElementById('tt-cat-list');
+
+    // Breadcrumbs
+    const bcBangladesh = document.getElementById('bc-bangladesh');
+    const bcSep1 = document.getElementById('bc-sep1');
+    const bcDivision = document.getElementById('bc-division');
+    const bcSep2 = document.getElementById('bc-sep2');
+    const bcDistrict = document.getElementById('bc-district');
+    const bcSep3 = document.getElementById('bc-sep3');
+    const bcThana = document.getElementById('bc-thana');
+
+    // Right Profile Elements
+    const profileTitle = document.getElementById('profile-title');
+    const profileSubtitle = document.getElementById('profile-subtitle');
+    const profileHeroNum = document.getElementById('profile-hero-num');
+    const profileHeroLbl = document.getElementById('profile-hero-lbl');
+    const profileSharePill = document.getElementById('profile-share-pill');
+    const profileCategoryGrid = document.getElementById('profile-category-grid');
+
+    // Left Navigator Elements
+    const divisionsGrid = document.getElementById('divisions-grid');
+    const districtsContainer = document.getElementById('districts-container');
+    const districtsSectionTitle = document.getElementById('districts-section-title');
+    const districtsCountBadge = document.getElementById('districts-count-badge');
+    const districtsItemList = document.getElementById('districts-item-list');
+    const thanasContainer = document.getElementById('thanas-container');
+    const thanasSectionTitle = document.getElementById('thanas-section-title');
+    const thanasCountBadge = document.getElementById('thanas-count-badge');
+    const thanasItemList = document.getElementById('thanas-item-list');
+    const categoryFilterList = document.getElementById('category-filter-list');
+    const activeCatPill = document.getElementById('active-cat-pill');
+
+    // 1. RENDER 8 DIVISIONS GRID (Screenshot 1)
+    function renderDivisionsGrid() {
+      divisionsGrid.innerHTML = '';
+      const divKeys = ['Dhaka', 'Chattogram', 'Rajshahi', 'Khulna', 'Barishal', 'Sylhet', 'Rangpur', 'Mymensingh'];
+      const isAll = (currentCategory === 'all');
+
+      divKeys.forEach(divName => {
+        const d = GEO_DATA.divisions[divName];
+        if (!d) return;
+
+        const count = isAll ? d.total_outlets : (d.categories[currentCategory] || 0);
+        const catTotal = isAll ? 1027663 : CATEGORIES[currentCategory].total_outlets;
+        const sharePct = ((count / catTotal) * 100).toFixed(1);
+        const stripeColor = DIVISION_STRIPE_COLORS[divName] || '#3B82F6';
+        const isSelected = (selectedDivision === divName && !selectedDistrict);
+
+        const card = document.createElement('div');
+        card.className = 'div-nav-card' + (isSelected ? ' active' : '');
+        card.style.borderLeft = `3.5px solid ${stripeColor}`;
+        card.style.setProperty('--card-accent', stripeColor);
+
+        card.innerHTML = `
+          <div class="div-card-title">${divName}</div>
+          <div class="div-card-num">${Number(count).toLocaleString()}</div>
+          <div class="div-card-sub">${sharePct}% Strong · ${d.districts_count} Dist</div>
+        `;
+
+        card.addEventListener('click', () => {
+          selectDivision(divName);
+        });
+
+        divisionsGrid.appendChild(card);
+      });
+    }
+
+    // 2. RENDER DISTRICTS LIST (When Division selected)
+    function renderDistrictsList(divName) {
+      if (!divName) {
+        districtsContainer.style.display = 'none';
+        return;
+      }
+
+      const distList = Object.entries(GEO_DATA.districts)
+        .filter(([_, d]) => d.division.toLowerCase() === divName.toLowerCase())
+        .sort((a, b) => {
+          const isAll = (currentCategory === 'all');
+          const countA = isAll ? a[1].total_outlets : (a[1].categories[currentCategory] || 0);
+          const countB = isAll ? b[1].total_outlets : (b[1].categories[currentCategory] || 0);
+          return countB - countA;
+        });
+
+      districtsSectionTitle.textContent = `${divName.toUpperCase()} DISTRICTS`;
+      districtsCountBadge.textContent = `${distList.length} Districts`;
+      districtsItemList.innerHTML = '';
+
+      const isAll = (currentCategory === 'all');
+
+      distList.forEach(([distName, d]) => {
+        const count = isAll ? d.total_outlets : (d.categories[currentCategory] || 0);
+        const isSelected = (selectedDistrict === distName && !selectedThana);
+
+        const item = document.createElement('div');
+        item.className = 'sub-item-card' + (isSelected ? ' active' : '');
+        item.innerHTML = `
+          <span class="sub-item-name">${distName}</span>
+          <span class="sub-item-val">${Number(count).toLocaleString()}</span>
+        `;
+
+        item.addEventListener('click', () => {
+          selectDistrict(distName, divName);
+        });
+
+        districtsItemList.appendChild(item);
+      });
+
+      districtsContainer.style.display = 'block';
+    }
+
+    // 3. RENDER THANAS LIST (When District selected)
+    function renderThanasList(distName, divName) {
+      if (!distName) {
+        thanasContainer.style.display = 'none';
+        return;
+      }
+
+      const thanaList = Object.entries(GEO_DATA.thanas)
+        .filter(([_, t]) => t.district.toLowerCase() === distName.toLowerCase())
+        .sort((a, b) => {
+          const isAll = (currentCategory === 'all');
+          const countA = isAll ? a[1].total_outlets : (a[1].categories[currentCategory] || 0);
+          const countB = isAll ? b[1].total_outlets : (b[1].categories[currentCategory] || 0);
+          return countB - countA;
+        });
+
+      thanasSectionTitle.textContent = `${distName.toUpperCase()} THANAS`;
+      thanasCountBadge.textContent = `${thanaList.length} Thanas`;
+      thanasItemList.innerHTML = '';
+
+      const isAll = (currentCategory === 'all');
+
+      thanaList.forEach(([thKey, t]) => {
+        const count = isAll ? t.total_outlets : (t.categories[currentCategory] || 0);
+        const isSelected = (selectedThana === thKey);
+
+        const item = document.createElement('div');
+        item.className = 'sub-item-card' + (isSelected ? ' active' : '');
+        item.innerHTML = `
+          <span class="sub-item-name">${t.name}</span>
+          <span class="sub-item-val" style="color:var(--accent-green);">${Number(count).toLocaleString()}</span>
+        `;
+
+        item.addEventListener('click', () => {
+          selectThana(thKey, distName, divName);
+        });
+
+        thanasItemList.appendChild(item);
+      });
+
+      thanasContainer.style.display = 'block';
+    }
+
+    // 4. RENDER CATEGORY FILTER (Left Sidebar)
+    function renderCategoryFilterList() {
+      categoryFilterList.innerHTML = '';
+      
+      Object.entries(CATEGORIES).forEach(([catKey, cat]) => {
+        const btn = document.createElement('div');
+        btn.className = 'cat-filter-btn' + (catKey === currentCategory ? ' active' : '');
+        btn.dataset.cat = catKey;
+
+        btn.innerHTML = `
+          <div class="cat-filter-left">
+            <span class="cat-filter-icon">${cat.icon}</span>
+            <span class="cat-filter-title">${cat.short_name}</span>
+          </div>
+          <span class="cat-filter-val" style="color:${cat.color};">${Number(cat.total_outlets).toLocaleString()}</span>
+        `;
+
+        btn.addEventListener('click', () => {
+          currentCategory = catKey;
+          activeCatPill.textContent = cat.icon + ' ' + cat.short_name;
+          renderCategoryFilterList();
+          renderDivisionsGrid();
+          if (selectedDivision) renderDistrictsList(selectedDivision);
+          if (selectedDistrict) renderThanasList(selectedDistrict, selectedDivision);
+          updateRightProfile();
+          updateMapLayers();
+        });
+
+        categoryFilterList.appendChild(btn);
+      });
+    }
+
+    // 5. RENDER RIGHT PROFILE & 2-COLUMN CATEGORY GRID (Screenshot 2)
+    function updateRightProfile() {
+      let title = '', subtitle = '', total = 0, catCount = 0, share = '', categories = {};
+      const isAll = (currentCategory === 'all');
+
+      if (selectedThana) {
+        const t = GEO_DATA.thanas[selectedThana] || {};
+        title = `${t.name || selectedThana.split('__')[0]} Thana`;
+        subtitle = `${t.name} থানা (${t.district} জেলা, ${t.division} বিভাগ)`;
+        total = t.total_outlets || 0;
+        catCount = isAll ? total : (t.categories[currentCategory] || 0);
+        share = ((total / 1027663) * 100).toFixed(1) + '%';
+        categories = t.categories || {};
+      } else if (selectedDistrict) {
+        const d = GEO_DATA.districts[selectedDistrict] || {};
+        title = `${selectedDistrict} District`;
+        subtitle = `${selectedDistrict} জেলা (${d.division} বিভাগ • ${d.thanas_count} থানা)`;
+        total = d.total_outlets || 0;
+        catCount = isAll ? total : (d.categories[currentCategory] || 0);
+        share = d.share_pct ? `${d.share_pct}%` : ((total / 1027663) * 100).toFixed(1) + '%';
+        categories = d.categories || {};
+      } else if (selectedDivision) {
+        const d = GEO_DATA.divisions[selectedDivision] || {};
+        title = `${selectedDivision} Division`;
+        subtitle = `${d.name_bn || selectedDivision} বিভাগ (${d.districts_count || 8} জেলা)`;
+        total = d.total_outlets || 0;
+        catCount = isAll ? total : (d.categories[currentCategory] || 0);
+        share = `${d.share_pct || 38.3}%`;
+        categories = d.categories || {};
+      } else {
+        // NATIONAL BANGLADESH OVERVIEW (Default initial view)
+        title = `Bangladesh Retail Universe`;
+        subtitle = `সমগ্র বাংলাদেশ (৮ বিভাগ • ৬৪ জেলা • ৫৪৫ থানা)`;
+        total = 1027663;
+        catCount = isAll ? total : (CATEGORIES[currentCategory] ? CATEGORIES[currentCategory].total_outlets : total);
+        share = `100%`;
+        categories = {};
+        Object.entries(CATEGORIES).forEach(([k, v]) => {
+          if (k !== 'all') {
+            categories[k] = v.total_outlets;
+          }
+        });
+      }
+
+      profileTitle.textContent = title;
+      profileSubtitle.textContent = subtitle;
+      profileHeroNum.textContent = Number(total).toLocaleString();
+      profileHeroLbl.textContent = 'মোট সক্রিয় খুচরা দোকান';
+      profileSharePill.textContent = share;
+
+      // Render 2-Column Category Grid (Screenshot 2)
+      profileCategoryGrid.innerHTML = '';
+      
+      const orderedKeys = ['all', 'tea', 'chips', 'oil', 'biscuits', 'dairy', 'staples', 'protein', 'noodles', 'beverages', 'spices', 'tobacco'];
+
+      orderedKeys.forEach(catKey => {
+        const catMeta = CATEGORIES[catKey];
+        if (!catMeta) return;
+
+        const countVal = (catKey === 'all') ? total : (categories[catKey] || 0);
+        const catShare = (catKey === 'all') ? '100%' : (catMeta.total_outlets > 0 ? ((countVal / catMeta.total_outlets) * 100).toFixed(1) + '%' : '0.0%');
+        const isSelected = (catKey === currentCategory);
+
+        const card = document.createElement('div');
+        card.className = 'profile-cat-card' + (isSelected ? ' active' : '');
+        card.innerHTML = `
+          <div class="profile-cat-top-row">
+            <div class="profile-cat-left">
+              <span class="profile-cat-icon-box" style="background:${catMeta.color}18; border: 1px solid ${catMeta.color}35;">${catMeta.icon}</span>
+              <span class="profile-cat-name">${catMeta.short_name}</span>
+            </div>
+            <div class="profile-cat-right">
+              <span class="profile-cat-num">${Number(countVal).toLocaleString()}</span>
+              <span class="profile-cat-share-pill" style="color:${catMeta.color}; background:${catMeta.color}18; border: 1px solid ${catMeta.color}35;">${catShare}</span>
+            </div>
+          </div>
+          <div class="profile-cat-bar" style="background:${catMeta.color};"></div>
+        `;
+
+        card.addEventListener('click', () => {
+          currentCategory = (currentCategory === catKey) ? 'all' : catKey;
+          activeCatPill.textContent = CATEGORIES[currentCategory].icon + ' ' + CATEGORIES[currentCategory].short_name;
+          renderCategoryFilterList();
+          renderDivisionsGrid();
+          if (selectedDivision) renderDistrictsList(selectedDivision);
+          if (selectedDistrict) renderThanasList(selectedDistrict, selectedDivision);
+          updateRightProfile();
+          updateMapLayers();
+        });
+
+        profileCategoryGrid.appendChild(card);
+      });
+    }
+
+    // 6. UPDATE BREADCRUMB
+    function updateBreadcrumb() {
+      if (selectedThana) {
+        bcSep1.style.display = 'inline';
+        bcDivision.style.display = 'inline';
+        bcDivision.textContent = `${selectedDivision} বিভাগ`;
+
+        bcSep2.style.display = 'inline';
+        bcDistrict.style.display = 'inline';
+        bcDistrict.textContent = `${selectedDistrict} জেলা`;
+
+        bcSep3.style.display = 'inline';
+        bcThana.style.display = 'inline';
+        const t = GEO_DATA.thanas[selectedThana] || {};
+        bcThana.textContent = `${t.name || selectedThana.split('__')[0]} থানা`;
+      } else if (selectedDistrict) {
+        bcSep1.style.display = 'inline';
+        bcDivision.style.display = 'inline';
+        bcDivision.textContent = `${selectedDivision} বিভাগ`;
+
+        bcSep2.style.display = 'inline';
+        bcDistrict.style.display = 'inline';
+        bcDistrict.textContent = `${selectedDistrict} জেলা`;
+
+        bcSep3.style.display = 'none';
+        bcThana.style.display = 'none';
+      } else if (selectedDivision) {
+        bcSep1.style.display = 'inline';
+        bcDivision.style.display = 'inline';
+        bcDivision.textContent = `${selectedDivision} বিভাগ`;
+
+        bcSep2.style.display = 'none';
+        bcDistrict.style.display = 'none';
+        bcSep3.style.display = 'none';
+        bcThana.style.display = 'none';
+      } else {
+        bcSep1.style.display = 'none';
+        bcDivision.style.display = 'none';
+        bcSep2.style.display = 'none';
+        bcDistrict.style.display = 'none';
+        bcSep3.style.display = 'none';
+        bcThana.style.display = 'none';
+      }
+    }
+
+    // 7. SELECTION ACTIONS (Division -> District -> Thana)
+    function selectDivision(divName, shouldZoom = true) {
+      selectedDivision = divName;
+      selectedDistrict = null;
+      selectedThana = null;
+      currentLevel = 'division';
+
+      renderDivisionsGrid();
+      renderDistrictsList(divName);
+      thanasContainer.style.display = 'none';
+
+      updateRightProfile();
+      updateBreadcrumb();
+      syncLevelButtons();
+      updateMapLayers();
+
+      if (shouldZoom) {
+        const distsInDiv = BD_DISTRICTS_GEO.features.filter(f => f.properties.division && f.properties.division.toLowerCase() === divName.toLowerCase());
+        if (distsInDiv.length > 0) {
+          const b = L.geoJSON({ type: "FeatureCollection", features: distsInDiv }).getBounds();
+          if (b.isValid()) map.fitBounds(b, { padding: [40, 40] });
+        }
+      }
+    }
+
+    function selectDistrict(distName, divName, shouldZoom = true) {
+      selectedDivision = divName;
+      selectedDistrict = distName;
+      selectedThana = null;
+      currentLevel = 'thana';
+
+      renderDivisionsGrid();
+      renderDistrictsList(divName);
+      renderThanasList(distName, divName);
+
+      updateRightProfile();
+      updateBreadcrumb();
+      syncLevelButtons();
+      updateMapLayers();
+
+      if (shouldZoom) {
+        const thanasInDist = BD_THANAS_GEO.features.filter(f => f.properties.district && f.properties.district.toLowerCase() === distName.toLowerCase());
+        if (thanasInDist.length > 0) {
+          const b = L.geoJSON({ type: "FeatureCollection", features: thanasInDist }).getBounds();
+          if (b.isValid()) map.fitBounds(b, { padding: [50, 50] });
+        }
+      }
+    }
+
+    function selectThana(thKey, distName, divName) {
+      selectedDivision = divName;
+      selectedDistrict = distName;
+      selectedThana = thKey;
+      currentLevel = 'thana';
+
+      renderDistrictsList(divName);
+      renderThanasList(distName, divName);
+
+      updateRightProfile();
+      updateBreadcrumb();
+      syncLevelButtons();
+      updateMapLayers();
+    }
+
+    function syncLevelButtons() {
+      document.querySelectorAll('.level-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.level === currentLevel);
+      });
+    }
+
+    // 8. MASTER MAP ENGINE (Isolated Division Districts matching Image 2, Isolated District Thanas matching Image 3)
+    function updateMapLayers() {
+      if (baseDistrictPolygonLayer) map.removeLayer(baseDistrictPolygonLayer);
+      if (highlightPolygonLayer) map.removeLayer(highlightPolygonLayer);
+      labelLayer.clearLayers();
+
+      const isAll = (currentCategory === 'all');
+
+      // ─── SCENARIO 1: DISTRICT SELECTED (SHOW ONLY THIS DISTRICT'S THANAS - EXACTLY MATCHING IMAGE 3) ───
+      if (selectedDistrict) {
+        const distName = selectedDistrict;
+        const divName = selectedDivision || 'Dhaka';
+        const thanaFeatures = BD_THANAS_GEO.features.filter(f => 
+          f.properties.district && f.properties.district.toLowerCase() === distName.toLowerCase()
+        );
+
+        if (thanaFeatures.length > 0) {
+          baseDistrictPolygonLayer = L.geoJSON(thanaFeatures, {
+            style: (feature) => {
+              const thName = feature.properties.thana;
+              const key = `${thName}__${distName}`;
+              const baseColor = getThanaColor(thName, distName);
+              const isSelThana = (selectedThana === key);
+              return {
+                fillColor: baseColor,
+                fillOpacity: isSelThana ? 0.98 : 0.88,
+                color: '#FFFFFF',
+                weight: isSelThana ? 3.8 : 2.5,
+                opacity: 1
+              };
+            },
+            onEachFeature: (feature, layer) => {
+              const th = feature.properties.thana;
+              const dist = feature.properties.district;
+              const div = feature.properties.division || divName;
+              const key = `${th}__${dist}`;
+              layer.on({
+                mouseover: () => {
+                  layer.setStyle({ fillOpacity: 1.0, weight: 3.6 });
+                },
+                mouseout: () => {
+                  const isSelThana = (selectedThana === key);
+                  layer.setStyle({ fillOpacity: isSelThana ? 0.98 : 0.88, weight: isSelThana ? 3.8 : 2.5 });
+                },
+                click: () => {
+                  selectThana(key, dist, div);
+                }
+              });
+            }
+          }).addTo(map);
+
+          thanaFeatures.forEach(f => {
+            const th = f.properties.thana;
+            const dist = f.properties.district;
+            const key = `${th}__${dist}`;
+            const coords = THANA_CENTERS[key] || (function() {
+              try { 
+                const c = L.geoJSON(f).getBounds().getCenter();
+                return [c.lat, c.lng];
+              } catch(e) { return null; }
+            })();
+            if (!coords) return;
+
+            const tInfo = GEO_DATA.thanas[key];
+            const count = tInfo ? (isAll ? tInfo.total_outlets : (tInfo.categories[currentCategory] || 0)) : 0;
+            const displayName = th.replace(/([a-z])([A-Z])/g, '$1 $2');
+
+            const labelHtml = `
+              <div class="territory-map-lbl">
+                <div class="dist-lbl-title">${displayName}</div>
+                <div class="dist-lbl-cnt">${Number(count).toLocaleString()}</div>
+              </div>
+            `;
+
+            const icon = L.divIcon({
+              html: labelHtml,
+              className: 'div-marker-wrapper',
+              iconSize: [85, 32],
+              iconAnchor: [42, 16]
+            });
+
+            const mk = L.marker(coords, { icon: icon, interactive: true });
+            mk.on('click', () => selectThana(key, dist, divName));
+            labelLayer.addLayer(mk);
+          });
+
+          return;
+        }
+      }
+
+      // ─── SCENARIO 2: DIVISION SELECTED (SHOW ONLY THIS DIVISION'S DISTRICTS - EXACTLY MATCHING IMAGE 2) ───
+      if (selectedDivision) {
+        const divName = selectedDivision;
+        const distFeatures = BD_DISTRICTS_GEO.features.filter(f => 
+          f.properties.division && f.properties.division.toLowerCase() === divName.toLowerCase()
+        );
+
+        if (distFeatures.length > 0) {
+          baseDistrictPolygonLayer = L.geoJSON(distFeatures, {
+            style: (feature) => {
+              const distName = feature.properties.district;
+              const baseColor = getDistrictColor(distName, divName);
+              return {
+                fillColor: baseColor,
+                fillOpacity: 0.88,
+                color: '#FFFFFF',
+                weight: 2.8,
+                opacity: 1
+              };
+            },
+            onEachFeature: (feature, layer) => {
+              const distName = feature.properties.district;
+              layer.on({
+                mouseover: () => {
+                  layer.setStyle({ fillOpacity: 1.0, weight: 3.8 });
+                },
+                mouseout: () => {
+                  layer.setStyle({ fillOpacity: 0.88, weight: 2.8 });
+                },
+                click: () => {
+                  selectDistrict(distName, divName);
+                }
+              });
+            }
+          }).addTo(map);
+
+          distFeatures.forEach(f => {
+            const distName = f.properties.district;
+            const coords = DISTRICT_CENTERS[distName] || (function() {
+              try { 
+                const c = L.geoJSON(f).getBounds().getCenter();
+                return [c.lat, c.lng];
+              } catch(e) { return null; }
+            })();
+            if (!coords) return;
+
+            const dInfo = GEO_DATA.districts[distName];
+            const count = dInfo ? (isAll ? dInfo.total_outlets : (dInfo.categories[currentCategory] || 0)) : 0;
+
+            const labelHtml = `
+              <div class="territory-map-lbl">
+                <div class="dist-lbl-title">${distName}</div>
+                <div class="dist-lbl-cnt">${Number(count).toLocaleString()}</div>
+              </div>
+            `;
+
+            const icon = L.divIcon({
+              html: labelHtml,
+              className: 'div-marker-wrapper',
+              iconSize: [95, 34],
+              iconAnchor: [47, 17]
+            });
+
+            const mk = L.marker(coords, { icon: icon, interactive: true });
+            mk.on('click', () => selectDistrict(distName, divName));
+            labelLayer.addLayer(mk);
+          });
+
+          return;
+        }
+      }
+
+      // ─── SCENARIO 3: NATIONAL OVERVIEW (WHOLE BANGLADESH) ───
+      if (currentLevel === 'thana') {
+        baseDistrictPolygonLayer = L.geoJSON(BD_THANAS_GEO, {
+          style: (feature) => {
+            const th = feature.properties.thana;
+            const dist = feature.properties.district;
+            const baseColor = getThanaColor(th, dist);
+            return {
+              fillColor: baseColor,
+              fillOpacity: 0.85,
+              color: '#FFFFFF',
+              weight: 0.9,
+              opacity: 1
+            };
+          },
+          onEachFeature: (feature, layer) => {
+            const th = feature.properties.thana;
+            const dist = feature.properties.district;
+            const div = feature.properties.division;
+            const key = `${th}__${dist}`;
+            layer.on({
+              mouseover: () => {
+                layer.setStyle({ fillOpacity: 1.0, weight: 2.2 });
+              },
+              mouseout: () => {
+                layer.setStyle({ fillOpacity: 0.85, weight: 0.9 });
+              },
+              click: () => {
+                selectDistrict(dist, div);
+              }
+            });
+          }
+        }).addTo(map);
+
+        // Render District Labels across Bangladesh on National Thana View
+        Object.entries(DISTRICT_CENTERS).forEach(([distName, coords]) => {
+          const dInfo = GEO_DATA.districts[distName];
+          if (!dInfo) return;
+          const count = isAll ? dInfo.total_outlets : (dInfo.categories[currentCategory] || 0);
+
+          const labelHtml = `
+            <div class="dist-lbl">
+              <div class="dist-lbl-title">${distName}</div>
+              <div class="dist-lbl-cnt">${Number(count).toLocaleString()}</div>
+            </div>
+          `;
+          const icon = L.divIcon({
+            html: labelHtml,
+            className: 'div-marker-wrapper',
+            iconSize: [90, 32],
+            iconAnchor: [45, 16]
+          });
+          const mk = L.marker(coords, { icon: icon, interactive: true });
+          mk.on('click', () => {
+            const feat = BD_DISTRICTS_GEO.features.find(f => f.properties.district === distName);
+            const divName = feat ? feat.properties.division : 'Dhaka';
+            selectDistrict(distName, divName);
+          });
+          labelLayer.addLayer(mk);
+        });
+      } else {
+        baseDistrictPolygonLayer = L.geoJSON(BD_DISTRICTS_GEO, {
+          style: (feature) => {
+            const divName = feature.properties.division;
+            const distName = feature.properties.district;
+            const baseColor = (currentLevel === 'district') ? getDistrictColor(distName, divName) : (DIVISION_COLORS[divName] || '#60A5FA');
+            return {
+              fillColor: baseColor,
+              fillOpacity: 0.85,
+              color: '#FFFFFF',
+              weight: 1.6,
+              opacity: 1
+            };
+          },
+          onEachFeature: (feature, layer) => {
+            const distName = feature.properties.district;
+            const divName = feature.properties.division;
+            layer.on({
+              mouseover: () => {
+                layer.setStyle({ fillOpacity: 1.0, weight: 3.2 });
+              },
+              mouseout: () => {
+                layer.setStyle({ fillOpacity: 0.85, weight: 1.6 });
+              },
+              click: () => {
+                if (currentLevel === 'district') {
+                  selectDistrict(distName, divName);
+                } else {
+                  selectDivision(divName);
+                }
+              }
+            });
+          }
+        }).addTo(map);
+
+        if (currentLevel === 'district') {
+          Object.entries(DISTRICT_CENTERS).forEach(([distName, coords]) => {
+            const dInfo = GEO_DATA.districts[distName];
+            if (!dInfo) return;
+            const count = isAll ? dInfo.total_outlets : (dInfo.categories[currentCategory] || 0);
+
+            const labelHtml = `
+              <div class="dist-lbl">
+                <div class="dist-lbl-title">${distName}</div>
+                <div class="dist-lbl-cnt">${Number(count).toLocaleString()}</div>
+              </div>
+            `;
+            const icon = L.divIcon({
+              html: labelHtml,
+              className: 'div-marker-wrapper',
+              iconSize: [90, 32],
+              iconAnchor: [45, 16]
+            });
+            const mk = L.marker(coords, { icon: icon, interactive: true });
+            mk.on('click', () => {
+              const feat = BD_DISTRICTS_GEO.features.find(f => f.properties.district === distName);
+              const divName = feat ? feat.properties.division : 'Dhaka';
+              selectDistrict(distName, divName);
+            });
+            labelLayer.addLayer(mk);
+          });
+        } else {
+          Object.entries(DIV_LABEL_COORDS).forEach(([divName, coords]) => {
+            const info = GEO_DATA.divisions[divName];
+            if (!info) return;
+            const count = isAll ? info.total_outlets : (info.categories[currentCategory] || 0);
+
+            const labelHtml = `
+              <div class="div-lbl">
+                <div class="div-lbl-title">${divName}</div>
+                <div class="div-lbl-cnt">${Number(count).toLocaleString()}</div>
+              </div>
+            `;
+            const icon = L.divIcon({
+              html: labelHtml,
+              className: 'div-marker-wrapper',
+              iconSize: [120, 40],
+              iconAnchor: [60, 20]
+            });
+            const mk = L.marker(coords, { icon: icon, interactive: true });
+            mk.on('click', () => selectDivision(divName));
+            labelLayer.addLayer(mk);
+          });
+        }
+      }
+    }
+
+    // 9. TOOLTIP ENGINE (Disabled per user requirement)
+    function showTerritoryTooltip(level, key, e) {
+      // Intentionally empty: hover tooltip is disabled
+      if (tooltip) tooltip.style.display = 'none';
+    }
+
+    function moveTooltip(e) {
+      // Intentionally empty
+    }
+
+    function hideTooltip() {
+      if (tooltip) tooltip.style.display = 'none';
+    }
+
+    // 10. EVENT LISTENERS
+    // Level Switcher Handlers
+    document.querySelectorAll('.level-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const targetLevel = btn.dataset.level;
+
+        if (targetLevel === 'division') {
+          currentLevel = 'division';
+          selectedDistrict = null;
+          selectedThana = null;
+          thanasContainer.style.display = 'none';
+          if (!selectedDivision) {
+            map.setView([23.85, 90.15], 7.2);
+          } else {
+            renderDistrictsList(selectedDivision);
+          }
+        } else if (targetLevel === 'district') {
+          currentLevel = 'district';
+          selectedDistrict = null;
+          selectedThana = null;
+          thanasContainer.style.display = 'none';
+          if (!selectedDivision) {
+            map.setView([23.85, 90.15], 7.2);
+          } else {
+            renderDistrictsList(selectedDivision);
+          }
+        } else if (targetLevel === 'thana') {
+          currentLevel = 'thana';
+          if (!selectedDistrict) {
+            // Switch to national 545 thanas overview
+            selectedDivision = null;
+            selectedDistrict = null;
+            selectedThana = null;
+            districtsContainer.style.display = 'none';
+            thanasContainer.style.display = 'none';
+            map.setView([23.85, 90.15], 7.2);
+          }
+        }
+        updateRightProfile();
+        updateBreadcrumb();
+        updateMapLayers();
+      });
+    });
+
+    // Map Action Toolbar Handlers
+    const leftSidebar = document.querySelector('.left-sidebar');
+    const rightSidebar = document.querySelector('.right-sidebar');
+    const btnFullscreenMap = document.getElementById('btn-fullscreen-map');
+    const fsIcon = document.getElementById('fs-icon');
+    const fsText = document.getElementById('fs-text');
+    const btnToggleLeft = document.getElementById('btn-toggle-left-sidebar');
+    const btnToggleRight = document.getElementById('btn-toggle-right-sidebar');
+
+    function updateSidebarToggleIcons() {
+      if (btnToggleLeft) {
+        btnToggleLeft.textContent = leftSidebar.classList.contains('collapsed') ? '▶' : '◀';
+      }
+      if (btnToggleRight) {
+        btnToggleRight.textContent = rightSidebar.classList.contains('collapsed') ? '◀' : '▶';
+      }
+    }
+
+    // Toggle Left Sidebar
+    if (btnToggleLeft) {
+      btnToggleLeft.addEventListener('click', () => {
+        leftSidebar.classList.toggle('collapsed');
+        updateSidebarToggleIcons();
+        setTimeout(() => map.invalidateSize(), 300);
+      });
+    }
+
+    // Toggle Right Sidebar
+    if (btnToggleRight) {
+      btnToggleRight.addEventListener('click', () => {
+        rightSidebar.classList.toggle('collapsed');
+        updateSidebarToggleIcons();
+        setTimeout(() => map.invalidateSize(), 300);
+      });
+    }
+
+    // Fullscreen Map Mode (Expand map to entire window by collapsing both sidebars)
+    let isMapFullscreen = false;
+    if (btnFullscreenMap) {
+      btnFullscreenMap.addEventListener('click', () => {
+        isMapFullscreen = !isMapFullscreen;
+        if (isMapFullscreen) {
+          leftSidebar.classList.add('collapsed');
+          rightSidebar.classList.add('collapsed');
+          btnFullscreenMap.classList.add('active');
+          fsIcon.textContent = '🗗';
+          fsText.textContent = 'নরমাল ভিউ';
+        } else {
+          leftSidebar.classList.remove('collapsed');
+          rightSidebar.classList.remove('collapsed');
+          btnFullscreenMap.classList.remove('active');
+          fsIcon.textContent = '⛶';
+          fsText.textContent = 'ফুলস্ক্রিন ম্যাপ';
+        }
+        updateSidebarToggleIcons();
+        setTimeout(() => {
+          map.invalidateSize();
+          fitCurrentMapBounds();
+        }, 300);
+      });
+    }
+
+    // Fine Zoom In (+0.3)
+    document.getElementById('btn-zoom-in').addEventListener('click', () => {
+      map.setZoom(map.getZoom() + 0.3);
+    });
+
+    // Fine Zoom Out (-0.3)
+    document.getElementById('btn-zoom-out').addEventListener('click', () => {
+      map.setZoom(map.getZoom() - 0.3);
+    });
+
+    // Fit Map Button
+    function fitCurrentMapBounds() {
+      if (selectedDistrict) {
+        const thanasInDist = BD_THANAS_GEO.features.filter(f => f.properties.district && f.properties.district.toLowerCase() === selectedDistrict.toLowerCase());
+        if (thanasInDist.length > 0) {
+          const b = L.geoJSON({ type: "FeatureCollection", features: thanasInDist }).getBounds();
+          if (b.isValid()) map.fitBounds(b, { padding: [35, 35] });
+        }
+      } else if (selectedDivision) {
+        const distsInDiv = BD_DISTRICTS_GEO.features.filter(f => f.properties.division && f.properties.division.toLowerCase() === selectedDivision.toLowerCase());
+        if (distsInDiv.length > 0) {
+          const b = L.geoJSON({ type: "FeatureCollection", features: distsInDiv }).getBounds();
+          if (b.isValid()) map.fitBounds(b, { padding: [35, 35] });
+        }
+      } else {
+        const b = L.geoJSON(BD_DISTRICTS_GEO).getBounds();
+        if (b.isValid()) map.fitBounds(b, { padding: [25, 25] });
+      }
+    }
+    document.getElementById('btn-fit-map').addEventListener('click', fitCurrentMapBounds);
+
+    // Reset View Button
+    function resetToNational() {
+      selectedDivision = null;
+      selectedDistrict = null;
+      selectedThana = null;
+      districtsContainer.style.display = 'none';
+      thanasContainer.style.display = 'none';
+      currentLevel = 'division';
+      syncLevelButtons();
+      renderDivisionsGrid();
+      updateRightProfile();
+      updateBreadcrumb();
+      const b = L.geoJSON(BD_DISTRICTS_GEO).getBounds();
+      if (b.isValid()) {
+        map.fitBounds(b, { padding: [30, 30] });
+      } else {
+        map.setView([23.75, 90.35], 7.3);
+      }
+      updateMapLayers();
+    }
+
+    document.getElementById('map-reset-btn').addEventListener('click', resetToNational);
+    document.getElementById('btn-reset-territory').addEventListener('click', resetToNational);
+    bcBangladesh.addEventListener('click', resetToNational);
+
+    bcDivision.addEventListener('click', () => {
+      if (selectedDivision) selectDivision(selectedDivision);
+    });
+
+    bcDistrict.addEventListener('click', () => {
+      if (selectedDistrict && selectedDivision) selectDistrict(selectedDistrict, selectedDivision);
+    });
+
+    // Theme Toggle
+    const themeBtn = document.getElementById('theme-btn');
+    const themeIcon = document.getElementById('theme-icon');
+    const themeText = document.getElementById('theme-text');
+    const htmlElem = document.documentElement;
+
+    themeBtn.addEventListener('click', () => {
+      const curr = htmlElem.getAttribute('data-theme');
+      const next = curr === 'dark' ? 'light' : 'dark';
+      htmlElem.setAttribute('data-theme', next);
+      themeIcon.textContent = next === 'light' ? '🌙' : '☀️';
+      themeText.textContent = next === 'light' ? 'ডার্ক মোড' : 'লাইট মোড';
+      updateMapLayers();
+    });
+
+    // Initial Launch
+    renderDivisionsGrid();
+    renderCategoryFilterList();
+    resetToNational();
+    // Delay fit to ensure map container has computed CSS dimensions
+    setTimeout(() => {
+      const b = L.geoJSON(BD_DISTRICTS_GEO).getBounds();
+      if (b.isValid()) map.fitBounds(b, { padding: [30, 30] });
+    }, 150);
+
+  </script>
+</body>
+</html>
